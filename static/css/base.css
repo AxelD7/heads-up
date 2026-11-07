@@ -1,0 +1,131 @@
+/* Global page setup */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background: #152638;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sidebar container */
+.sidebar {
+  width: 270px;
+  position: fixed;
+  margin-bottom: 16px;
+  padding: 16px;
+  height: 100vh;
+  background: #435161;
+  font-size: x-large;
+  transition: 0.4s ease;
+}
+
+.sidebar.collapsed {
+  width: 85px;
+}
+
+/* Sidebar header and app name */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 50px;
+}
+
+.sidebar.collapsed .sidebar-header {
+  justify-content: center;
+}
+
+.sidebar.collapsed .header-name {
+  display: none;
+}
+
+.sidebar-header .header-name {
+  height: 50px;
+  display: flex;
+  align-items: center;
+  font-size: xx-large;
+  font-weight: bolder;
+  text-decoration: none;
+}
+
+.sidebar-header .toggler {
+  background: #fff;
+  height: 35px;
+  width: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.4s ease;
+}
+
+.sidebar-header .toggler:hover {
+  color: #909eae;
+}
+
+.sidebar-header .toggler span {
+  font-size: 1.75rem;
+}
+
+/* App name colors */
+.header-text-a {
+  color: #57b9ff;
+}
+
+.header-text-b {
+  color: #fff;
+}
+
+/* Main sidebar navigation */
+.sidebar-nav .nav-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sidebar-nav .nav-link {
+  display: flex;
+  height: 50px;
+  gap: 4px;
+  align-items: center;
+  padding: 12px 15px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: white;
+  cursor: pointer;
+  transition: 0.4s ease;
+}
+
+.sidebar-nav .nav-link:hover {
+  color: #152638;
+  background: #fff;
+}
+
+.sidebar.collapsed .sidebar-nav .sidebar-label {
+  transition: opacity 0.4s ease;
+}
+
+.sidebar.collapsed .sidebar-nav .nav-link .sidebar-label {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Main page content */
+.content-area {
+  flex: 1;
+  margin-left: 270px;
+  transition: margin-left 0.4s ease;
+}
+
+.sidebar.collapsed ~ .content-area {
+  margin-left: 85px;
+}
