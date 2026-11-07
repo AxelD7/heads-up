@@ -39,7 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     
     # Custom Apps (Features or Domains, e.g. events, notifications, etc)
-    'users'
+    'users.apps.UsersConfig',
+    'events',
 ]
 
 MIDDLEWARE = [
@@ -128,3 +129,5 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+AUTH_USER_MODEL = 'users.CustomUser'
