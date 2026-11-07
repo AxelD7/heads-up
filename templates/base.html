@@ -1,0 +1,71 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+  <!-- Page setup and shared resources -->
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>{% block title %}Heads Up Calendar{% endblock %}</title>
+    <meta name="description" content="" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{% static 'css/base.css' %}" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+    />
+  </head>
+
+  <body>
+    <div class="layout-wrapper">
+      <!-- Sidebar navigation -->
+      <aside class="sidebar">
+        <!-- App name and sidebar toggle -->
+        <header class="sidebar-header">
+          <a href="" class="header-name"
+            ><div class="header-text-a">Heads</div>
+            <div class="header-text-b">Up</div></a
+          >
+          <button class="toggler sidebar-toggler">
+            <span class="material-symbols-outlined">chevron_left</span>
+          </button>
+        </header>
+
+        <!-- Main navigation links -->
+        <nav class="sidebar-nav">
+          <ul class="nav-list primary-nav">
+            <li class="calendar-view">
+              <a href="/" class="nav-link">
+                <span class="material-symbols-outlined">calendar_month</span>
+                <span class="sidebar-label">Calendar View</span>
+              </a>
+            </li>
+            <li class="notifications">
+              <a href="/notifications" class="nav-link">
+                <span class="material-symbols-outlined"> notifications </span>
+                <span class="sidebar-label">Notifications</span>
+              </a>
+            </li>
+            <li class="settings">
+              <a href="/settings" class="nav-link">
+                <span class="material-symbols-outlined">settings</span>
+                <span class="sidebar-label">Settings</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+
+        <!-- Other calendar options can be added here (Example: specific calendars like work, school, etc... user defined) -->
+        <div class="secondary-nav"></div>
+      </aside>
+
+      <!-- Main page content -->
+      {% block content %}
+      <!-- Other pages will inject their HTML here! -->
+      {% endblock %}
+    </div>
+  </body>
+
+  <!-- Shared sidebar behavior -->
+  <script src="{% static 'js/base.js' %}"></script>
+</html>
