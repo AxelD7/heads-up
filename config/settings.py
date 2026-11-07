@@ -39,7 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     
     # Custom Apps (Features or Domains, e.g. events, notifications, etc)
-    'users.apps.UsersConfig'
+    'users.apps.UsersConfig',
+    'events',
 ]
 
 MIDDLEWARE = [
