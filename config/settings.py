@@ -134,3 +134,5 @@ MAILERS = {
 }
 
 AUTH_USER_MODEL = 'users.CustomUser'
+# TODO: Once a log in view is created, change this from /admin to whatever url the login is at.
+LOGIN_URL='/admin'

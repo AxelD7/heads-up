@@ -37,7 +37,7 @@
             <li class="calendar-view">
               <a href="/" class="nav-link">
                 <span class="material-symbols-outlined">calendar_month</span>
-                <span class="sidebar-label">Calendar View</span>
+                <span class="sidebar-label">Calendar</span>
               </a>
             </li>
             <li class="notifications">
@@ -59,10 +59,39 @@
         <div class="secondary-nav"></div>
       </aside>
 
-      <!-- Main page content -->
-      {% block content %}
-      <!-- Other pages will inject their HTML here! -->
-      {% endblock %}
+      <!-- Includes main content area and top bar  -->
+      <div class="main-section">
+        <!-- Only shows top bar info when user is validated -->
+        {% if user.is_authenticated %}
+          <header class="top-nav">
+            <div class="top-nav-actions">
+              <span class="welcome-message">Welcome, {{ user.first_name|default:user.username }}</span>
+
+              <!-- Show the admin link only for superusers -->
+              {% if user.is_superuser %}
+                <a href="{% url 'admin:index' %}" class="top-nav-button admin-button">
+                  <span class="material-symbols-outlined">admin_panel_settings</span>
+                  <span>Admin</span>
+                </a>
+              {% endif %}
+
+              <form action="{% url 'logout' %}" method="post">
+                <!-- Django template feature that automatically appends hidden csrf token value to a page -->
+                {% csrf_token %}
+                <button type="submit" class="top-nav-button logout-button">
+                  <span class="material-symbols-outlined">logout</span>
+                  <span>Log out</span>
+                </button>
+              </form>
+            </div>
+          </header>
+        {% endif %}
+
+        <!-- Main page content -->
+        {% block content %}
+        <!-- Other pages will inject their HTML here! -->
+        {% endblock %}
+      </div>
     </div>
   </body>
 
