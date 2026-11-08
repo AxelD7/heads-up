@@ -29,6 +29,73 @@ body {
   width: 85px;
 }
 
+/* Main Section Container */
+.main-section {
+  min-width: 0;
+  min-height: 100vh;
+  margin-left: 270px;
+  transition: margin-left 0.4s ease;
+}
+
+.sidebar.collapsed ~ .main-section {
+  margin-left: 85px;
+}
+
+
+/* Top Nav Bar */
+.top-nav {
+  height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 24px;
+  background: #203b52;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.top-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.top-nav-actions form {
+  margin: 0;
+}
+
+.top-nav-button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+  color: #152638;
+  text-decoration: none;
+  cursor: pointer;
+  transition: 0.4s ease;
+}
+
+.top-nav-button:hover {
+  color: #fff;
+  background: #64c5ff;
+}
+
+.top-nav-button .material-symbols-outlined {
+  font-size: 1.25rem;
+}
+
+.welcome-message {
+  color: #fff;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+}
+
 /* Sidebar header and app name */
 .sidebar-header {
   display: flex;
@@ -77,7 +144,7 @@ body {
 
 /* App name colors */
 .header-text-a {
-  color: #57b9ff;
+  color: #64c5ff;
 }
 
 .header-text-b {
@@ -102,16 +169,12 @@ body {
   text-decoration: none;
   color: white;
   cursor: pointer;
-  transition: 0.4s ease;
+  transition: 0.1s ease;
 }
 
 .sidebar-nav .nav-link:hover {
   color: #152638;
   background: #fff;
-}
-
-.sidebar.collapsed .sidebar-nav .sidebar-label {
-  transition: opacity 0.4s ease;
 }
 
 .sidebar.collapsed .sidebar-nav .nav-link .sidebar-label {
@@ -122,10 +185,6 @@ body {
 /* Main page content */
 .content-area {
   flex: 1;
-  margin-left: 270px;
-  transition: margin-left 0.4s ease;
-}
-
-.sidebar.collapsed ~ .content-area {
-  margin-left: 85px;
+  padding: 24px;
+  color: #fff;
 }
