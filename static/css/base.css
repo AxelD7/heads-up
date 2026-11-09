@@ -188,3 +188,55 @@ body {
   padding: 24px;
   color: #fff;
 }
+
+/* Resizing content for mobile devices (based off iphone 17) */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 64px;
+    padding: 16px 12px;
+  }
+
+  .sidebar-header {
+    justify-content: center;
+  }
+
+  .sidebar .header-name,
+  .sidebar .sidebar-toggler,
+  .sidebar .sidebar-label,
+  .welcome-message {
+    display: none;
+  }
+
+  .sidebar .nav-link {
+    justify-content: center;
+    padding: 12px;
+  }
+
+  .main-section,
+  .sidebar.collapsed ~ .main-section {
+    margin-left: 64px;
+  }
+
+  .top-nav {
+    height: 58px;
+    padding: 0 12px;
+  }
+
+  .top-nav-actions {
+    gap: 8px;
+  }
+
+  .top-nav-button {
+    min-width: 38px;
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .top-nav-button span:not(.material-symbols-outlined) {
+    display: none;
+  }
+
+  .content-area {
+    padding: 16px;
+  }
+}
