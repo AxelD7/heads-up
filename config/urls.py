@@ -22,7 +22,7 @@ from django.contrib.auth.views import LogoutView
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("users/", include("users.urls")),
-    
+
     # Since events will be the core of our app, all urls will start with no prefix
     path("", include("events.urls")),
     # Path that removes user from the currrent session, redirects to '/' endpoint
