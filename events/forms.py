@@ -8,7 +8,9 @@ class EventForm(forms.ModelForm):
     """
 
     # internal start time does not need to respect user preference
-    # instead we can impliment that on the front end to change display to users  
+    # instead we can impliment that on the front end to change display to users
+
+    # Get and save the start time of the event  
     start_time = forms.DateTimeField(
         input_formats=["%Y-%m-%dT%H:%M"],
         widget=forms.DateTimeInput(
@@ -16,7 +18,7 @@ class EventForm(forms.ModelForm):
             format="%Y-%m-%dT%H:%M",
         ),
     )
-
+    # Get and save the end time of the event
     end_time = forms.DateTimeField(
         input_formats=["%Y-%m-%dT%H:%M"],
         widget=forms.DateTimeInput(
@@ -35,13 +37,13 @@ class EventForm(forms.ModelForm):
             "description",
             "category",
         ]
-
+    # Utilizing django's in-built data cleaning for consistency of data
     def clean(self):
         cleaned_data = super().clean()
 
         start_time = cleaned_data.get("start_time")
         end_time = cleaned_data.get("end_time")
-        # Validity Check of start and end time plus error throwing 
+        # Validity Check that start time < end time & start time != end time plus error throwing 
         if start_time and end_time and end_time <= start_time:
             self.add_error(
                 "end_time",
