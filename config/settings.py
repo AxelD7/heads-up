@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     # Custom Apps (Features or Domains, e.g. events, notifications, etc)
     'users.apps.UsersConfig',
     'events',
+    'notifications',
 ]
 
 MIDDLEWARE = [
