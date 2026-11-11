@@ -285,7 +285,7 @@ class EventViewTestCase(TestCase):
         response = self.client.post(
             reverse("events:event_create"),
             {
-                "title": "Coding Grindsesh",
+                "title": "New Coding Grindsesh",
                 "start_time": self.get_formatted_time(
                     self.start + timedelta(days=2)
                 ),
@@ -300,7 +300,7 @@ class EventViewTestCase(TestCase):
 
         self.assertEqual(response.status_code, 302)
 
-        event = Event.objects.get(title="Coding Grindsesh")
+        event = Event.objects.get(title="New Coding Grindsesh")
 
         self.assertEqual(event.user, self.user)
         self.assertEqual(
