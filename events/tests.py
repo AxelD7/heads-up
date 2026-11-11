@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
+from django.urls import reverse
 
 from .models import Event, ExternalFeed
 
@@ -179,3 +180,282 @@ class EventModelTestCase(TestCase):
 
         # Verify hash changes when content changes
         self.assertNotEqual(hash1, hash2)
+
+
+class EventViewTestCase(TestCase):
+    """
+    Tests for Event CRUD views, authentication,
+    ownership permissions, and form validation.
+    """
+
+    def setUp(self):
+        User = get_user_model()
+
+        # Creates two users to test event ownership.
+        self.user = User.objects.create_user(
+            username="user1",
+            email="user1@example.com",
+            password="password123",
+            phone_number="555-0200",
+        )
+
+        self.other_user = User.objects.create_user(
+            username="user2",
+            email="user2@example.com",
+            password="admin1thisisastrongpw",
+            phone_number="555-0201",
+        )
+
+        self.client.force_login(self.user)
+
+        # Creates an event belonging to the first user.
+        self.start = timezone.localtime(
+            timezone.now() + timedelta(days=1)
+        ).replace(second=0, microsecond=0)
+
+        self.end = self.start + timedelta(hours=1)
+
+        self.event = Event.objects.create(
+            user=self.user,
+            title="Coding Grindsesh",
+            start_time=self.start,
+            end_time=self.end,
+            location="The Basement",
+            description="Surely HeadsUp will work at the end of this one",
+        )
+
+        # Create an event belonging to the second user.
+        self.other_event = Event.objects.create(
+            user=self.other_user,
+            title="Other User Event",
+            start_time=self.start,
+            end_time=self.end,
+        )
+
+    def get_formatted_time(self, value):
+        """
+        Format datetime values for HTML datetime-local inputs.
+        """
+        return timezone.localtime(value).strftime("%Y-%m-%dT%H:%M")
+
+    def test_event_list_only_shows_users_own_events(self):
+        """
+        Ensure users only see events belonging to their account.
+        """
+        response = self.client.get(reverse("events:event_list"))
+
+        self.assertEqual(response.status_code, 200)
+
+        events = list(response.context["events"])
+
+        self.assertIn(self.event, events)
+        self.assertNotIn(self.other_event, events)
+
+    def test_user_can_view_own_event(self):
+        """
+        Ensure a user can view their own event.
+        """
+        response = self.client.get(
+            reverse(
+                "events:event_detail",
+                kwargs={"pk": self.event.pk},
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["event"], self.event)
+
+    def test_user_cannot_view_another_users_event(self):
+        """
+        Ensure users cannot view events owned by other users.
+        """
+        response = self.client.get(
+            reverse(
+                "events:event_detail",
+                kwargs={"pk": self.other_event.pk},
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_user_can_create_event(self):
+        """
+        Ensure an authenticated user can successfully create an event.
+        """
+        response = self.client.post(
+            reverse("events:event_create"),
+            {
+                "title": "New Coding Grindsesh",
+                "start_time": self.get_formatted_time(
+                    self.start + timedelta(days=2)
+                ),
+                "end_time": self.get_formatted_time(
+                    self.end + timedelta(days=2)
+                ),
+                "location": "My Basement",
+                "description": "I love git",
+                "category": Event.Category.ACADEMIC,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+
+        event = Event.objects.get(title="New Coding Grindsesh")
+
+        self.assertEqual(event.user, self.user)
+        self.assertEqual(
+            event.category,
+            Event.Category.ACADEMIC,
+        )
+
+    def test_event_creation_rejects_invalid_times(self):
+        """
+        Ensure an event cannot end before or at its start time.
+        """
+        start = self.start + timedelta(days=2)
+        end = start - timedelta(hours=1)
+
+        response = self.client.post(
+            reverse("events:event_create"),
+            {
+                "title": "Invalid Event",
+                "start_time": self.get_formatted_time(start),
+                "end_time": self.get_formatted_time(end),
+                "location": "",
+                "description": "",
+                "category": Event.Category.PERSONAL,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            "End time must be after start time.",
+            response.context["form"].errors["end_time"],
+        )
+
+        self.assertFalse(
+            Event.objects.filter(title="Invalid Event").exists()
+        )
+
+    def test_user_can_update_own_event(self):
+        """
+        Ensure a user can update an event they own.
+        """
+        response = self.client.post(
+            reverse(
+                "events:event_update",
+                kwargs={"pk": self.event.pk},
+            ),
+            {
+                "title": "Updated Coding Session",
+                "start_time": self.get_formatted_time(self.start),
+                "end_time": self.get_formatted_time(self.end),
+                "location": "Blizzard",
+                "description": "Pullin the codecave",
+                "category": Event.Category.ACADEMIC,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+
+        self.event.refresh_from_db()
+
+        self.assertEqual(
+            self.event.title,
+            "Updated Coding Session",
+        )
+        self.assertEqual(self.event.location, "Blizzard")
+        self.assertEqual(self.event.user, self.user)
+
+    def test_user_cannot_update_another_users_event(self):
+        """
+        Ensure a user cannot update an event owned by another user.
+        """
+        response = self.client.post(
+            reverse(
+                "events:event_update",
+                kwargs={"pk": self.other_event.pk},
+            ),
+            {
+                "title": "Unauthorized Update",
+                "start_time": self.get_formatted_time(self.start),
+                "end_time": self.get_formatted_time(self.end),
+                "category": Event.Category.PERSONAL,
+            },
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+        self.other_event.refresh_from_db()
+
+        self.assertEqual(
+            self.other_event.title,
+            "Other User Event",
+        )
+
+    def test_user_can_delete_own_event(self):
+        """
+        Ensure a user can delete an event they own.
+        """
+        response = self.client.post(
+            reverse(
+                "events:event_delete",
+                kwargs={"pk": self.event.pk},
+            )
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("events:event_list"),
+        )
+
+        self.assertFalse(
+            Event.objects.filter(pk=self.event.pk).exists()
+        )
+
+    def test_user_cannot_delete_another_users_event(self):
+        """
+        Ensure a user cannot delete an event owned by another user.
+        """
+        response = self.client.post(
+            reverse(
+                "events:event_delete",
+                kwargs={"pk": self.other_event.pk},
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+        self.assertTrue(
+            Event.objects.filter(pk=self.other_event.pk).exists()
+        )
+
+    def test_delete_requires_post_request(self):
+        """
+        Ensure events cannot be deleted using GET requests.
+        """
+        response = self.client.get(
+            reverse(
+                "events:event_delete",
+                kwargs={"pk": self.event.pk},
+            )
+        )
+
+        self.assertEqual(response.status_code, 405)
+
+        self.assertTrue(
+            Event.objects.filter(pk=self.event.pk).exists()
+        )
+
+    def test_unauthenticated_user_cannot_access_events(self):
+        """
+        Ensure unauthenticated users are redirected to login.
+        """
+        self.client.logout()
+
+        response = self.client.get(
+            reverse("events:event_list")
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response.url)
