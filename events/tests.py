@@ -212,7 +212,7 @@ class EventViewTestCase(TestCase):
         self.start = timezone.localtime(
             timezone.now() + timedelta(days=1)
         ).replace(second=0, microsecond=0)
-
+        # End time = starttime + 1 hour
         self.end = self.start + timedelta(hours=1)
 
         self.event = Event.objects.create(
