@@ -190,10 +190,11 @@ class NotificationQueueTestCase(TestCase):
             end_time=start + timedelta(hours=1),
         )
 
-        self.assertEqual(NotificationQueue.objects.filter(event=event).count(), 1)
-
+        event_id = event.id
+        self.assertEqual(NotificationQueue.objects.filter(event_id=event_id).count(), 1)
+        
         event.delete()
-        self.assertEqual(NotificationQueue.objects.filter(event=event).count(), 0)
+        self.assertEqual(NotificationQueue.objects.filter(event_id=event_id).count(), 0)
 
     def test_events_from_different_users_create_rows_for_own_owner(self):
         """
