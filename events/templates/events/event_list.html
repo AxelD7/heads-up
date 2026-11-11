@@ -1,0 +1,7 @@
+<h1>My Events</h1>
+
+{% for event in events %}
+    <p>{{ event.title }}</p>
+{% empty %}
+    <p>No events found.</p>
+{% endfor %}
