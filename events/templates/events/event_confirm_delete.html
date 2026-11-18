@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-5">
+    <div class="card shadow-sm">
+        <div class="card-body text-center">
+
+            <h2 class="text-danger mb-3">
+                Delete Event?
+            </h2>
+
+            <p>
+                Are you sure you want to delete
+                <strong>{{ event.title }}</strong>?
+            </p>
+
+            <p class="text-muted">
+                This action cannot be undone.
+            </p>
+
+            <form method="POST">
+                {% csrf_token %}
+
+                <button type="submit" class="btn btn-danger">
+                    Confirm Delete
+                </button>
+
+                <a href="{% url 'events:event_detail' event.pk %}"
+                   class="btn btn-secondary">
+                    Cancel
+                </a>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+{% endblock %}
