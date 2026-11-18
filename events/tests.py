@@ -238,11 +238,11 @@ class EventViewTestCase(TestCase):
         """
         return timezone.localtime(value).strftime("%Y-%m-%dT%H:%M")
 
-    def test_event_list_only_shows_users_own_events(self):
+    def test_dashboard_only_shows_users_own_events(self):
         """
         Ensure users only see events belonging to their account.
         """
-        response = self.client.get(reverse("events:event_list"))
+        response = self.client.get(reverse("events:dashboard"))
 
         self.assertEqual(response.status_code, 200)
 
@@ -393,46 +393,49 @@ class EventViewTestCase(TestCase):
             "Other User Event",
         )
 
-    def test_user_can_delete_own_event(self):
+    def test_delete_confirmation_page(self):
         """
-        Ensure a user can delete an event they own.
+        Ensure users can view the confirmation page before deleting
+        their own event.
         """
-        response = self.client.post(
+        response = self.client.get(
             reverse(
-                "events:event_delete",
+                "events:event_delete_confirm",
                 kwargs={"pk": self.event.pk},
             )
         )
 
-        self.assertRedirects(
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(
             response,
-            reverse("events:event_list"),
+            "events/event_confirm_delete.html"
         )
+        self.assertEqual(response.context["event"], self.event)
 
-        self.assertFalse(
+        # Viewing confirmation must not delete the event.
+        self.assertTrue(
             Event.objects.filter(pk=self.event.pk).exists()
         )
 
-    def test_user_cannot_delete_another_users_event(self):
+
+    def test_user_cannot_view_another_users_delete_confirmation(self):
         """
-        Ensure a user cannot delete an event owned by another user.
+        Ensure users cannot access the deletion confirmation page
+        for another user's event.
         """
-        response = self.client.post(
+        response = self.client.get(
             reverse(
-                "events:event_delete",
+                "events:event_delete_confirm",
                 kwargs={"pk": self.other_event.pk},
             )
         )
 
         self.assertEqual(response.status_code, 404)
 
-        self.assertTrue(
-            Event.objects.filter(pk=self.other_event.pk).exists()
-        )
 
     def test_delete_requires_post_request(self):
         """
-        Ensure events cannot be deleted using GET requests.
+        Ensure the actual deletion endpoint rejects GET requests.
         """
         response = self.client.get(
             reverse(
@@ -447,6 +450,27 @@ class EventViewTestCase(TestCase):
             Event.objects.filter(pk=self.event.pk).exists()
         )
 
+
+    def test_delete_confirmation_post_deletes_event(self):
+        """
+        Ensure submitting the confirmation form deletes the event.
+        """
+        response = self.client.post(
+            reverse(
+                "events:event_delete",
+                kwargs={"pk": self.event.pk},
+            )
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("events:dashboard"),
+        )
+
+        self.assertFalse(
+            Event.objects.filter(pk=self.event.pk).exists()
+        )
+
     def test_unauthenticated_user_cannot_access_events(self):
         """
         Ensure unauthenticated users are redirected to login.
@@ -454,7 +478,7 @@ class EventViewTestCase(TestCase):
         self.client.logout()
 
         response = self.client.get(
-            reverse("events:event_list")
+            reverse("events:dashboard")
         )
 
         self.assertEqual(response.status_code, 302)

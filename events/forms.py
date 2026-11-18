@@ -14,16 +14,22 @@ class EventForm(forms.ModelForm):
     start_time = forms.DateTimeField(
         input_formats=["%Y-%m-%dT%H:%M"],
         widget=forms.DateTimeInput(
-            attrs={"type": "datetime-local"},
-            format="%Y-%m-%dT%H:%M",
+        attrs={
+            "type": "datetime-local",
+            "class": "form-control",
+        },
+        format="%Y-%m-%dT%H:%M",
         ),
     )
     # Get and save the end time of the event
     end_time = forms.DateTimeField(
         input_formats=["%Y-%m-%dT%H:%M"],
         widget=forms.DateTimeInput(
-            attrs={"type": "datetime-local"},
-            format="%Y-%m-%dT%H:%M",
+        attrs={
+            "type": "datetime-local",
+            "class": "form-control",
+        },
+        format="%Y-%m-%dT%H:%M",
         ),
     )
 
@@ -37,6 +43,25 @@ class EventForm(forms.ModelForm):
             "description",
             "category",
         ]
+        widgets = {
+            "title": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "Enter event title",
+            }),
+            "location": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "Enter event location",
+            }),
+            "description": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 4,
+                "placeholder": "Event description",
+            }),
+            "category": forms.Select(attrs={
+                "class": "form-select",
+            }),
+        }
+
     # Utilizing django's in-built data cleaning for consistency of data
     def clean(self):
         cleaned_data = super().clean()
