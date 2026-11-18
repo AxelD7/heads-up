@@ -1,5 +1,66 @@
-<h1>{{ event.title }}</h1>
+{% extends "base.html" %}
 
-<p>{{ event.description }}</p>
-<p>{{ event.start_time }}</p>
-<p>{{ event.end_time }}</p>
+{% block content %}
+<div class="container mt-4">
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+
+            <h2>{{ event.title }}</h2>
+
+            <p>
+                <strong>Category:</strong>
+                {{ event.get_category_display }}
+            </p>
+
+            <p>
+                <strong>Start:</strong>
+                {{ event.start_time|date:"M d, Y H:i" }}
+            </p>
+
+            <p>
+                <strong>End:</strong>
+                {{ event.end_time|date:"M d, Y H:i" }}
+            </p>
+
+            <p>
+                <strong>Location:</strong>
+                {{ event.location|default:"Not specified" }}
+            </p>
+
+            <p>
+                <strong>Description:</strong>
+                {{ event.description|default:"No description" }}
+            </p>
+
+            <p>
+                <strong>Source:</strong>
+                {% if event.is_imported %}
+                    Imported
+                {% else %}
+                    Manually created
+                {% endif %}
+            </p>
+
+            <hr>
+
+            <a href="{% url 'events:event_update' event.pk %}"
+                class="btn btn-primary">
+                Edit Event
+            </a>
+
+            <a href="{% url 'events:event_delete_confirm' event.pk %}"
+                class="btn btn-danger">
+                Delete Event
+            </a>
+
+            <a href="{% url 'events:dashboard' %}"
+                class="btn btn-secondary">
+                Back
+            </a>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
