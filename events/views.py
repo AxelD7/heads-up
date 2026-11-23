@@ -1,22 +1,12 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .models import Event
 from .forms import EventForm
 
 
 # Event views
-@login_required()
-def dashboard(request):
-    
-    context = {
-        "message": "Hello from the dashboard"
-    }
-    
-    return render(request, "dashboard.html", context)
-
-
 @login_required
 def event_list(request):
     """
@@ -126,10 +116,11 @@ def event_delete(request, pk):
     )
     event.delete()
 
-    return redirect("events:dashboard")
+    return redirect("events:event_list")
     
 
 @login_required
+@require_GET
 def event_delete_confirm(request, pk):
     """
     Display a confirmation page before deleting an event.
@@ -140,6 +131,8 @@ def event_delete_confirm(request, pk):
         user=request.user
     )
 
-    event.delete()
-
-    return redirect("events:event_list")
+    return render(
+        request,
+        "events/event_confirm_delete.html",
+        {"event": event}
+    )

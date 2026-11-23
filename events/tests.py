@@ -242,7 +242,7 @@ class EventViewTestCase(TestCase):
         """
         Ensure users only see events belonging to their account.
         """
-        response = self.client.get(reverse("events:dashboard"))
+        response = self.client.get(reverse("events:event_list"))
 
         self.assertEqual(response.status_code, 200)
 
@@ -464,7 +464,7 @@ class EventViewTestCase(TestCase):
 
         self.assertRedirects(
             response,
-            reverse("events:dashboard"),
+            reverse("events:event_list"),
         )
 
         self.assertFalse(
@@ -478,7 +478,7 @@ class EventViewTestCase(TestCase):
         self.client.logout()
 
         response = self.client.get(
-            reverse("events:dashboard")
+            reverse("events:event_list")
         )
 
         self.assertEqual(response.status_code, 302)

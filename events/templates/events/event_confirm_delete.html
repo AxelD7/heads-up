@@ -1,4 +1,6 @@
-{% extends "events/base.html" %}
+{% extends "base.html" %}
+
+{% block title %}Delete Event | HeadsUp Calendar{% endblock %}
 
 {% block content %}
 
@@ -19,7 +21,7 @@
                 This action cannot be undone.
             </p>
 
-            <form method="POST">
+            <form action="{% url 'events:event_delete' event.pk %}" method="POST">
                 {% csrf_token %}
 
                 <button type="submit" class="btn btn-danger">

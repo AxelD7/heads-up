@@ -6,11 +6,10 @@ from . import views
 app_name = "events"
 
 urlpatterns = [
-    # Default view
-    path("", views.dashboard, name="dashboard"),
+
     
-    #Path to view list a currently logged in user of events
-    path("/list", views.event_list, name="event_list"),
+    #Path to view dashboard contianing a list of the currently logged in user of events
+    path("", views.event_list, name="event_list"),
 
     # Path when creating a event
     path("create/", views.event_create, name="event_create"),
@@ -20,6 +19,9 @@ urlpatterns = [
 
     # Path when updating a event
     path("<int:pk>/update/", views.event_update, name="event_update"),
+
+    # Path to confirm an event deletion
+    path("<int:pk>/delete/confirm/", views.event_delete_confirm, name="event_delete_confirm"),
 
     # Path when deleting a event
     path("<int:pk>/delete/", views.event_delete, name="event_delete"),
