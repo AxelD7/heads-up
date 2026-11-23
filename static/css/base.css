@@ -157,6 +157,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding-left: 0;
 }
 
 .sidebar-nav .nav-link {
@@ -186,7 +187,6 @@ body {
 .content-area {
   flex: 1;
   padding: 24px;
-  color: #fff;
 }
 
 /* Resizing content for mobile devices (based off iphone 17) */

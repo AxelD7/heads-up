@@ -1,7 +1,15 @@
-<h1>My Events</h1>
+{% extends "base.html" %}
 
-{% for event in events %}
-    <p>{{ event.title }}</p>
-{% empty %}
-    <p>No events found.</p>
-{% endfor %}
+{% block title %}My Events | HeadsUp Calendar{% endblock %}
+
+{% block content %}
+    <div class="container mt-4">
+        <h1>My Events</h1>
+
+        {% for event in events %}
+            <p>{{ event.title }}</p>
+        {% empty %}
+            <p>No events found.</p>
+        {% endfor %}
+    </div>
+{% endblock %}

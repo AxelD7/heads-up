@@ -1,4 +1,6 @@
-{% extends "events/base.html" %}
+{% extends "base.html" %}
+
+{% block title %}{{ event.title }} | HeadsUp Calendar{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -54,7 +56,7 @@
                 Delete Event
             </a>
 
-            <a href="{% url 'events:dashboard' %}"
+            <a href="{% url 'events:event_list' %}"
                 class="btn btn-secondary">
                 Back
             </a>
