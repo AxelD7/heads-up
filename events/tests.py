@@ -251,6 +251,52 @@ class EventViewTestCase(TestCase):
         self.assertIn(self.event, events)
         self.assertNotIn(self.other_event, events)
 
+    def test_dashboard_context_serializes_owned_events_and_preferences(self):
+        """
+        Test to make sure past events stay in the calendar data but do not make it to the upcoming list.
+        """
+        past_event = Event.objects.create(
+            user=self.user,
+            title="Past event",
+            start_time=timezone.now() - timedelta(days=2),
+            end_time=timezone.now() - timedelta(days=2) + timedelta(hours=1),
+        )
+        self.user.date_format = "D/M/Y"
+        self.user.time_format = "24h"
+        self.user.save(update_fields=["date_format", "time_format"])
+
+        response = self.client.get(reverse("events:event_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["date_format"], "D/M/Y")
+        self.assertEqual(response.context["time_format"], "24h")
+        self.assertIn(self.event, response.context["events"])
+        self.assertNotIn(past_event, response.context["events"])
+
+        serialized_events = response.context["dashboard_events"]
+        event_data = next(
+            event for event in serialized_events if event["id"] == self.event.pk
+        )
+        self.assertEqual(
+            event_data["start"], int(self.event.start_time.timestamp() * 1000)
+        )
+        self.assertEqual(
+            event_data["end"], int(self.event.end_time.timestamp() * 1000)
+        )
+        self.assertEqual(event_data["category"], self.event.category)
+        self.assertEqual(event_data["location"], self.event.location)
+        self.assertEqual(event_data["description"], self.event.description)
+        self.assertEqual(
+            event_data["detail_url"],
+            reverse("events:event_detail", kwargs={"pk": self.event.pk}),
+        )
+        self.assertTrue(
+            any(event["id"] == past_event.pk for event in serialized_events)
+        )
+        self.assertFalse(
+            any(event["id"] == self.other_event.pk for event in serialized_events)
+        )
+
     def test_user_can_view_own_event(self):
         """
         Ensure a user can view their own event.

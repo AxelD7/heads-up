@@ -1,0 +1,278 @@
+/* Dashboard Setup */
+.dashboard {
+  color: #152638;
+}
+
+/* Dashboard Header */
+.dashboard-heading {
+  margin-bottom: 12px;
+}
+
+.dashboard-title {
+  margin: 0 0 4px;
+  color: #176b91;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dashboard-heading h1,
+.upcoming-heading h2 {
+  margin: 0;
+  color: #152638;
+}
+
+.dashboard-heading h1 {
+  font-size: 2rem;
+}
+
+/* Dashboard Cards */
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: 2.5fr 1fr;
+  align-items: stretch;
+  gap: 20px;
+}
+
+.dashboard-card {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid #d3dce4;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(21, 38, 56, 0.1);
+}
+
+/* Calendar Header and Controls */
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.calendar-navigation {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.calendar-current-period {
+  margin: 0;
+  color: #152638;
+  font-size: 1.25rem;
+}
+
+.calendar-navigation-buttons,
+.calendar-view-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon-button,
+.today-button,
+.calendar-view-switcher button {
+  min-height: 38px;
+  border: 1px solid #d3dce4;
+  border-radius: 8px;
+  background: transparent;
+  color: #152638;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.icon-button {
+  width: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.today-button,
+.calendar-view-switcher button {
+  padding: 0 12px;
+}
+
+.today-button:hover,
+.icon-button:hover,
+.calendar-view-switcher button:hover {
+  border-color: #64c5ff;
+  color: #176b91;
+}
+
+.calendar-view-switcher button[aria-pressed="true"] {
+  border-color: #64c5ff;
+  background: #64c5ff;
+  color: #152638;
+  font-weight: 700;
+}
+
+.icon-button:focus-visible,
+.today-button:focus-visible,
+.calendar-view-switcher button:focus-visible,
+.upcoming-event-link:focus-visible {
+  outline: 3px solid #176b91;
+  outline-offset: 3px;
+}
+
+/* Calendar Grid */
+.calendar-grid {
+  overflow: hidden;
+  border: 1px solid #d3dce4;
+  border-radius: 12px;
+}
+
+
+/* Event Category Dot */
+.event-color-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #176b91;
+  margin-top: 6px;
+}
+
+/* Upcoming Events */
+.upcoming-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.upcoming-heading h2 {
+  font-size: 1.2rem;
+}
+
+.upcoming-heading-icon {
+  color: #176b91;
+  font-size: 1.8rem;
+}
+
+.upcoming-scroll {
+  max-height: 620px;
+  overflow-y: auto;
+}
+
+.upcoming-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.upcoming-item {
+  border-top: 1px solid #d3dce4;
+}
+
+.upcoming-event-link {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 2px;
+  color: #152638;
+  text-decoration: none;
+}
+
+.upcoming-event-link:hover .upcoming-event-title {
+  color: #176b91;
+}
+
+.upcoming-event-content {
+  min-width: 0;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.upcoming-event-title {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upcoming-event-datetime,
+.upcoming-event-location {
+  color: #596b7a;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.upcoming-event-location {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.upcoming-event-location .material-symbols-outlined,
+.upcoming-event-arrow {
+  font-size: 1rem;
+}
+
+.upcoming-event-arrow {
+  flex-shrink: 0;
+  color: #596b7a;
+}
+
+.empty-upcoming {
+  padding: 16px 0;
+  color: #596b7a;
+  line-height: 1.5;
+}
+
+/* Responsive Layout */
+@media (max-width: 900px) {
+  .dashboard-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .upcoming-scroll {
+    max-height: 380px;
+  }
+}
+
+/* Phone Layout */
+@media (max-width: 600px) {
+  .dashboard-card {
+    padding: 16px;
+  }
+
+  .calendar-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .calendar-navigation {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .calendar-weekdays p {
+    padding: 12px;
+  }
+}
+
+/* Small Phone Layout */
+@media (max-width: 420px) {
+  .calendar-navigation {
+    gap: 8px;
+  }
+
+  .calendar-current-period {
+    font-size: 1.1rem;
+  }
+
+  .today-button {
+    padding: 0 8px;
+  }
+}

@@ -1,5 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import Event
@@ -10,17 +12,39 @@ from .forms import EventForm
 @login_required
 def event_list(request):
     """
-    Display all events belonging to logged-in user.
+    Render the calendar dashboard with this user's events and preferences.
     """
-    events = Event.objects.filter(
-        user=request.user
-    ).order_by("start_time")
+    events = Event.objects.filter(user=request.user).order_by("start_time")
+    # Stores list of events that are after the current time to use in the front end.
+    upcoming_events = events.filter(start_time__gte=timezone.now())
+    # Build the JSON dashboard event data that the front end needs for the calendar.
+    dashboard_events = []
+    for event in events:
+        dashboard_events.append({
+            "id": event.pk,
+            "title": event.title,
+            "category": event.category,
+            "category_label": event.get_category_display(),
+            # Milliseconds preserve the UTC instant and let the browser render it in local time.
+            "start": int(event.start_time.timestamp() * 1000),
+            "end": int(event.end_time.timestamp() * 1000),
+            "location": event.location,
+            "description": event.description,
+            "detail_url": reverse("events:event_detail", kwargs={"pk": event.pk}),
+        })
 
     return render(
         request,
         "events/dashboard.html",
-        {"events": events}
-    )    
+        # Data being served to the template.
+        {
+            "events": upcoming_events,
+            "dashboard_events": dashboard_events,
+            # These preferences let the template and client-side calendar format dates consistently.
+            "date_format": request.user.date_format,
+            "time_format": request.user.time_format,
+        },
+    )
 
 @login_required
 def event_detail(request, pk):
