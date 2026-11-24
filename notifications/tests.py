@@ -1,10 +1,14 @@
 from datetime import timedelta
+from unittest.mock import patch
 from django.contrib.auth import get_user_model
+from django.core import mail
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from events.models import Event
 from .models import NotificationQueue
+from .services import send_due_notifications
 
 
 class NotificationQueueTestCase(TestCase):
@@ -226,3 +230,134 @@ class NotificationQueueTestCase(TestCase):
 
         self.assertEqual(notif1.user, self.user)
         self.assertEqual(notif2.user, user2)
+
+
+class EmailNotificationDispatcherTestCase(TestCase):
+    """
+    Test suite verifying the email dispatch worker, atomic status updates,
+    content formatting, 3-attempt retry policy, and management command.
+    """
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="dispatcheruser",
+            email="recipient@example.com",
+            password="securepassword789",
+            phone_number="555-0199",
+        )
+        self.now = timezone.now()
+
+        # Create an event starting in 30 minutes
+        self.event = Event.objects.create(
+            user=self.user,
+            title="CIS 2999 Presentation",
+            start_time=self.now + timedelta(minutes=30),
+            end_time=self.now + timedelta(minutes=90),
+            location="Room 101",
+            description="Final project demonstration.",
+        )
+
+    def test_send_due_notifications_success(self):
+        """
+        A due pending email notification should be sent via send_mail,
+        updated to status='sent', and increment attempts to 1.
+        """
+        # Create a notification whose target_time is in the past (due right now)
+        notification = NotificationQueue.objects.create(
+            event=self.event,
+            user=self.user,
+            target_time=self.now - timedelta(minutes=5),
+            delivery_method=NotificationQueue.DeliveryMethod.EMAIL,
+            status=NotificationQueue.Status.PENDING,
+            attempts=0,
+        )
+
+        results = send_due_notifications()
+
+        self.assertEqual(results["total"], 1)
+        self.assertEqual(results["sent"], 1)
+        self.assertEqual(results["failed"], 0)
+
+        # Verify email was dispatched to test outbox
+        self.assertEqual(len(mail.outbox), 1)
+        sent_email = mail.outbox[0]
+        self.assertIn("CIS 2999 Presentation", sent_email.subject)
+        self.assertIn("recipient@example.com", sent_email.to)
+        self.assertIn("Room 101", sent_email.body)
+        self.assertIn("Final project demonstration", sent_email.body)
+
+        # Verify database record updated
+        notification.refresh_from_db()
+        self.assertEqual(notification.status, NotificationQueue.Status.SENT)
+        self.assertEqual(notification.attempts, 1)
+
+    def test_future_notifications_not_sent(self):
+        """
+        A pending notification scheduled for the future should NOT be sent.
+        """
+        NotificationQueue.objects.create(
+            event=self.event,
+            user=self.user,
+            target_time=self.now + timedelta(hours=2),
+            delivery_method=NotificationQueue.DeliveryMethod.EMAIL,
+            status=NotificationQueue.Status.PENDING,
+        )
+
+        results = send_due_notifications()
+
+        self.assertEqual(results["total"], 0)
+        self.assertEqual(len(mail.outbox), 0)
+
+    @patch("notifications.services.send_mail", side_effect=Exception("SMTP Connection Error"))
+    def test_send_failure_retries_if_under_three_attempts(self, mock_send_mail):
+        """
+        If sending fails and attempts < 3, the status should revert to 'pending'
+        so it can be retried on the next worker run.
+        """
+        notification = NotificationQueue.objects.create(
+            event=self.event,
+            user=self.user,
+            target_time=self.now - timedelta(minutes=1),
+            delivery_method=NotificationQueue.DeliveryMethod.EMAIL,
+            status=NotificationQueue.Status.PENDING,
+            attempts=0,
+        )
+
+        # First failure (attempts becomes 1 < 3) -> retrying
+        results = send_due_notifications()
+        self.assertEqual(results["retrying"], 1)
+        notification.refresh_from_db()
+        self.assertEqual(notification.status, NotificationQueue.Status.PENDING)
+        self.assertEqual(notification.attempts, 1)
+
+        # Second failure (attempts becomes 2 < 3) -> retrying
+        results = send_due_notifications()
+        self.assertEqual(results["retrying"], 1)
+        notification.refresh_from_db()
+        self.assertEqual(notification.status, NotificationQueue.Status.PENDING)
+        self.assertEqual(notification.attempts, 2)
+
+        # Third failure (attempts becomes 3 >= 3) -> marked FAILED permanently
+        results = send_due_notifications()
+        self.assertEqual(results["failed"], 1)
+        notification.refresh_from_db()
+        self.assertEqual(notification.status, NotificationQueue.Status.FAILED)
+        self.assertEqual(notification.attempts, 3)
+
+    def test_management_command_send_notifications(self):
+        """
+        The 'send_notifications' management command should execute cleanly from CLI.
+        """
+        NotificationQueue.objects.create(
+            event=self.event,
+            user=self.user,
+            target_time=self.now - timedelta(minutes=2),
+            delivery_method=NotificationQueue.DeliveryMethod.EMAIL,
+            status=NotificationQueue.Status.PENDING,
+        )
+
+        # Call the management command
+        call_command("send_notifications")
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(NotificationQueue.objects.filter(status=NotificationQueue.Status.SENT).count(), 1)
