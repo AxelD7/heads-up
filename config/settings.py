@@ -124,14 +124,15 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
-# Email
-# https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
-
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+# Email Configuration (Gmail SMTP)
+# https://docs.djangoproject.com/en/6.1/topics/email/
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'headsup475@gmail.com'
+EMAIL_HOST_PASSWORD = 'fhng lprb jztb wnze'
+DEFAULT_FROM_EMAIL = 'Heads Up <headsup475@gmail.com>'
 
 AUTH_USER_MODEL = 'users.CustomUser'
 # TODO: Once a log in view is created, change this from /admin to whatever url the login is at.
