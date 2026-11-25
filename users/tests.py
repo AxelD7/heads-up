@@ -175,3 +175,12 @@ class AccountCreationTests(TestCase):
         self.assertEqual(get_user_model().objects.count(), 0)
         for name in ["username", "first_name", "last_name", "email", "phone_number", "password1", "password2"]:
             self.assertIn(name, response.context["form"].errors)
+
+    def test_signup_rejects_duplicate_phone_number(self):
+        get_user_model().objects.create_user(
+            username="other", email="other@example.com", password="x", phone_number="555-010-0199"
+        )
+        # Same digits, written differently, still counts as the same number.
+        response = self.client.post(reverse("signup"), self.valid_data(phone_number="(555) 010 0199"))
+        self.assertContains(response, "An account with this phone number already exists.")
+        self.assertFalse(get_user_model().objects.filter(username="newuser").exists())
