@@ -13,8 +13,6 @@
         &times;
       </button>
     </header>
-    <p class="quick-event-errors" data-form-errors role="alert"></p>
-
     <!-- Event details fields -->
     <label for="quick-event-title-input">Title</label>
     <input
@@ -25,8 +23,6 @@
       maxlength="200"
       required
     />
-    <span class="quick-event-field-error" data-field-errors="title"></span>
-
     <label for="quick-event-start">Start</label>
     <input
       class="form-control"
@@ -35,8 +31,6 @@
       type="datetime-local"
       required
     />
-    <span class="quick-event-field-error" data-field-errors="start_time"></span>
-
     <label for="quick-event-end">End</label>
     <input
       class="form-control"
@@ -45,8 +39,6 @@
       type="datetime-local"
       required
     />
-    <span class="quick-event-field-error" data-field-errors="end_time"></span>
-
     <label for="quick-event-category">Category</label>
     <select
       class="form-select"
@@ -58,8 +50,6 @@
       <option value="{{ value }}">{{ label }}</option>
       {% endfor %}
     </select>
-    <span class="quick-event-field-error" data-field-errors="category"></span>
-
     <label for="quick-event-location">Location</label>
     <input
       class="form-control"
@@ -68,8 +58,6 @@
       type="text"
       maxlength="200"
     />
-    <span class="quick-event-field-error" data-field-errors="location"></span>
-
     <label for="quick-event-description">Description</label>
     <textarea
       class="form-control"
@@ -77,11 +65,6 @@
       name="description"
       rows="3"
     ></textarea>
-    <span
-      class="quick-event-field-error"
-      data-field-errors="description"
-    ></span>
-
     <!-- Modal actions -->
     <footer class="quick-event-actions">
       <button class="today-button" type="button" data-close-quick-event>

@@ -55,17 +55,6 @@
   margin-top: 12px;
 }
 
-.quick-event-errors,
-.quick-event-field-error {
-  color: #b42318;
-  font-size: 0.85rem;
-}
-
-.quick-event-errors:empty,
-.quick-event-field-error:empty {
-  display: none;
-}
-
 .quick-event-submit {
   border-color: #176b91;
   background: #176b91;

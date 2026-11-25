@@ -83,17 +83,7 @@ def event_create(request):
             event.user = request.user
             event.save()
 
-            if request.headers.get("x-requested-with") == "XMLHttpRequest":
-                return JsonResponse({
-                    "id": event.pk,
-                    "title": event.title,
-                    "start": event.start_time.isoformat(),
-                    "end": event.end_time.isoformat(),
-                    "url": reverse("events:event_detail", kwargs={"pk": event.pk}),
-                    "category": event.category,
-                })
-
-            return redirect("events:event_detail", pk=event.pk)
+            return redirect("events:event_list")
 
     else:
         form = EventForm()

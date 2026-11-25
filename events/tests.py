@@ -346,7 +346,10 @@ class EventViewTestCase(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(
+            response,
+            reverse("events:event_list"),
+        )
 
         event = Event.objects.get(title="New Coding Grindsesh")
 

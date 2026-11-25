@@ -11,8 +11,7 @@ if (calendarGrid && calendarDays && calendarPeriod && eventsElement) {
   const timeFormat = calendarGrid.dataset.timeFormat;
   const is12Hour = timeFormat !== "24h";
 
-  // Grab references to the popup modal, its form, and the navigation/view buttons once up front
-  // so we don't have to repeatedly search the HTML page every time the user clicks something.
+  // Grab references to the popup modal and navigation/view buttons once up front.
   const quickEventDialog = document.querySelector("#quick-event-dialog");
   const quickEventForm = quickEventDialog?.querySelector("form");
   const previousButton = document.querySelector('[data-calendar-action="previous"]');
@@ -20,25 +19,14 @@ if (calendarGrid && calendarDays && calendarPeriod && eventsElement) {
   const viewButtons = document.querySelectorAll("[data-calendar-view]");
   const actionButtons = document.querySelectorAll("[data-calendar-action]");
 
-  // Ensure the global helper object exists, and provide a fallback function if it wasn't loaded elsewhere.
-  // This converts a browser's local date/time string into a standard UTC ISO string for Django.
-  window.HeadsUpTime = window.HeadsUpTime || {};
-  window.HeadsUpTime.localInputToUtc =
-    window.HeadsUpTime.localInputToUtc ||
-    ((value) => (value ? new Date(value).toISOString() : ""));
-
-  
-  // Helper function that converts an event object from JSON format into the  structure that FullCalendar expects.
- 
-   
+  // Convert an event object from JSON format into the structure FullCalendar expects.
   function toCalendarEvent(rawEvent) {
     return {
       id: rawEvent.id,
       title: rawEvent.title,
       start: rawEvent.start, // Django sends timestamps in milliseconds, which FullCalendar reads directly
       end: rawEvent.end,
-      // Support either "detail_url" (from initial page load) or "url" (from AJAX save response)
-      url: rawEvent.detail_url || rawEvent.url,
+      url: rawEvent.detail_url,
       // Attach base styling plus a category-specific color class (e.g., "calendar-event--work") if present
       classNames: [
         "calendar-event",
@@ -154,53 +142,10 @@ if (calendarGrid && calendarDays && calendarPeriod && eventsElement) {
     // Populate the form inputs and clear any leftover validation errors from previous attempts
     quickEventForm.elements.start_time.value = toLocalDateTimeInput(start);
     quickEventForm.elements.end_time.value = toLocalDateTimeInput(end);
-    clearQuickEventErrors();
-
     // Open the native HTML <dialog> modal and put the cursor in the Title input
     quickEventDialog.showModal();
     quickEventForm.elements.title.focus();
   }
-
-  // Resets all red error borders and error messages inside the quick-event form.
-  function clearQuickEventErrors() {
-    if (!quickEventForm) return;
-
-    quickEventForm.querySelectorAll(".is-invalid").forEach((input) => {
-      input.classList.remove("is-invalid");
-      input.removeAttribute("aria-invalid");
-    });
-
-    quickEventForm.querySelectorAll("[data-field-errors]").forEach((target) => {
-      target.textContent = "";
-    });
-
-    const formErrors = quickEventForm.querySelector("[data-form-errors]");
-    if (formErrors) formErrors.textContent = "";
-  }
-
-  // Displays validation errors returned by Django next to their matching form inputs.
-  function showQuickEventErrors(errors) {
-    if (!quickEventForm) return;
-
-    // Loop over each pair of field errors/message
-    Object.entries(errors).forEach(([field, messages]) => {
-      const input = quickEventForm.elements.namedItem(field);
-
-      if (input) {
-        // Highlight the invalid input and show its error message underneath
-        input.classList.add("is-invalid");
-        input.setAttribute("aria-invalid", "true");
-
-        const errorTarget = quickEventForm.querySelector(`[data-field-errors="${field}"]`);
-        if (errorTarget) errorTarget.textContent = messages.join(" ");
-      } else {
-        // If the error isn't tied to a specific field (e.g., "__all__"), show it in the general error area
-        const formErrors = quickEventForm.querySelector("[data-form-errors]");
-        if (formErrors) formErrors.textContent = messages.join(" ");
-      }
-    });
-  }
-
 
   // Connect the custom "Month" and "Week" buttons to FullCalendar's view switcher
   viewButtons.forEach((button) => {
@@ -225,7 +170,7 @@ if (calendarGrid && calendarDays && calendarPeriod && eventsElement) {
     });
   });
 
-  // Set up modal close buttons, backdrop clicks, and AJAX form submission if the modal exists
+  // Set up modal close buttons and backdrop clicks if the modal exists.
   if (quickEventDialog && quickEventForm) {
     // Close modal when clicking any button with [data-close-quick-event] (like "Cancel" or "X")
     quickEventDialog.querySelectorAll("[data-close-quick-event]").forEach((button) => {
@@ -237,56 +182,6 @@ if (calendarGrid && calendarDays && calendarPeriod && eventsElement) {
       if (event.target === quickEventDialog) quickEventDialog.close();
     });
 
-    // Clear errors whenever the dialog closes (including when pressing the Escape key)
-    quickEventDialog.addEventListener("close", clearQuickEventErrors);
-
-    // Intercept form submission so we can send it via AJAX (fetch) without reloading the page
-    quickEventForm.addEventListener("submit", async (event) => {
-      // Stop the browser's default full-page form submission
-      event.preventDefault();
-      clearQuickEventErrors();
-
-      // Collect all form fields (including Django's hidden csrfmiddlewaretoken)
-      const formData = new FormData(quickEventForm);
-
-      // Convert local start_time and end_time strings into UTC timestamps before sending to Django
-      for (const field of ["start_time", "end_time"]) {
-        formData.set(field, window.HeadsUpTime.localInputToUtc(formData.get(field)));
-      }
-
-      try {
-        // Send the POST request asynchronously and wait ("await") for Django's response
-        const response = await fetch(quickEventForm.action, {
-          method: "POST",
-          body: formData,
-          headers: { "X-Requested-With": "XMLHttpRequest" },
-        });
-        const result = await response.json();
-
-        // If Django returned a 400 Bad Request (validation failed), display the errors and stop
-        if (!response.ok) {
-          showQuickEventErrors(result.errors || {});
-          return;
-        }
-
-        // Support responses structured either as { id, title, ... } or { event: { id, title, ... } }
-        const createdEvent = result.event || result;
-
-        // Add the newly saved event directly onto the calendar UI without refreshing the page
-        calendar.addEvent(toCalendarEvent(createdEvent));
-
-        // Close and reset the form
-        quickEventDialog.close();
-        quickEventForm.reset();
-      } catch (error) {
-        // Handle network failures or unexpected server crashes gracefully
-        const formErrors = quickEventForm.querySelector("[data-form-errors]");
-        if (formErrors) {
-          formErrors.textContent = "The event could not be saved. Please try again.";
-        }
-        console.error("Quick event submission failed.", error);
-      }
-    });
   }
 
   // Draw the calendar on the page for the first time
