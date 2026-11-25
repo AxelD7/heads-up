@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone as dt_timezone
+from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from django.urls import reverse
 
@@ -802,3 +803,147 @@ class CalendarDashboardAndImportTestCase(TestCase):
         resp_del = self.client.post(reverse("events:delete_feed", kwargs={"pk": other_feed.pk}))
         self.assertEqual(resp_sync.status_code, 404)
         self.assertEqual(resp_del.status_code, 404)
+
+
+@override_settings(
+    GOOGLE_CLIENT_ID="test-client-id.apps.googleusercontent.com",
+    GOOGLE_CLIENT_SECRET="test-secret",
+    GOOGLE_REDIRECT_URI="http://127.0.0.1:8000/google/callback/",
+)
+class GoogleCalendarAPITestCase(TestCase):
+    """
+    Test suite verifying Google OAuth 2.0 flow, CSRF state verification,
+    UTC conversion of Google Calendar events, and SHA-256 duplicate prevention.
+    """
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="gcaluser",
+            email="gcal@example.com",
+            password="testpassword123",
+            phone_number="555-0166",
+        )
+        self.client.force_login(self.user)
+
+    def test_google_connect_redirects_with_oauth_state(self):
+        """
+        Visiting /google/connect/ must store a CSRF state in session and redirect to Google.
+        """
+        response = self.client.get(reverse("events:google_connect"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("https://accounts.google.com/o/oauth2/v2/auth", response.url)
+        self.assertIn("client_id=test-client-id.apps.googleusercontent.com", response.url)
+        self.assertIn("calendar.readonly", response.url)
+        self.assertIn("google_oauth_state", self.client.session)
+
+    def test_google_callback_rejects_invalid_state(self):
+        """
+        Callback must reject requests whose OAuth state does not match the session state.
+        """
+        session = self.client.session
+        session["google_oauth_state"] = "expected-state"
+        session.save()
+
+        response = self.client.get(
+            reverse("events:google_callback"),
+            data={"state": "wrong-state", "code": "abc"},
+        )
+        self.assertRedirects(response, reverse("events:import_calendar"))
+        self.assertEqual(Event.objects.filter(user=self.user).count(), 0)
+
+    @patch("events.views.exchange_code_for_tokens", return_value={"access_token": "fake-token"})
+    @patch("events.google_calendar.fetch_google_calendar_events")
+    def test_google_callback_imports_and_deduplicates_events(self, mock_fetch, mock_exchange):
+        """
+        OAuth callback must import timed and all-day events, skip canceled ones,
+        and prevent duplicates on subsequent syncs.
+        """
+        mock_fetch.return_value = [
+            {
+                "id": "google-evt-1",
+                "status": "confirmed",
+                "summary": "Doctor Appointment",
+                "location": "Clinic",
+                "description": "Annual checkup",
+                "start": {"dateTime": "2026-12-05T10:00:00-05:00"},
+                "end": {"dateTime": "2026-12-05T11:00:00-05:00"},
+            },
+            {
+                "id": "google-evt-2",
+                "status": "confirmed",
+                "summary": "Holiday Break",
+                "start": {"date": "2026-12-25"},
+                "end": {"date": "2026-12-26"},
+            },
+            {
+                "id": "google-evt-3",
+                "status": "cancelled",
+                "summary": "Canceled Meeting",
+                "start": {"dateTime": "2026-12-06T12:00:00Z"},
+            },
+        ]
+
+        session = self.client.session
+        session["google_oauth_state"] = "valid-state"
+        session.save()
+
+        response = self.client.get(
+            reverse("events:google_callback"),
+            data={"state": "valid-state", "code": "auth-code-123"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, f"{reverse('events:event_list')}?source=Google")
+
+        # 2 confirmed events imported, 1 cancelled skipped
+        events = Event.objects.filter(user=self.user, feed__source_type="Google")
+        self.assertEqual(events.count(), 2)
+
+        appt = events.get(external_id="google-evt-1")
+        self.assertTrue(appt.is_imported)
+        # 10:00 AM EST (-05:00) == 15:00 UTC
+        self.assertEqual(appt.start_time, datetime(2026, 12, 5, 15, 0, tzinfo=dt_timezone.utc))
+        self.assertEqual(len(appt.content_hash), 64)
+
+        # Re-syncing identical data via sync_feed must skip duplicates
+        feed = appt.feed
+        resp_resync = self.client.post(reverse("events:sync_feed", kwargs={"pk": feed.pk}))
+        self.assertEqual(resp_resync.status_code, 302)
+        self.assertEqual(Event.objects.filter(feed=feed).count(), 2)
+
+    @patch("events.google_calendar.fetch_google_calendar_events")
+    def test_sync_google_events_updates_changed_event(self, mock_fetch):
+        """
+        If an event changes on Google Calendar, re-syncing updates the existing row
+        rather than creating a duplicate.
+        """
+        from .google_calendar import sync_google_events
+
+        mock_fetch.return_value = [
+            {
+                "id": "google-evt-99",
+                "status": "confirmed",
+                "summary": "Original Title",
+                "start": {"dateTime": "2026-12-10T14:00:00Z"},
+                "end": {"dateTime": "2026-12-10T15:00:00Z"},
+            }
+        ]
+        res1 = sync_google_events(self.user, "fake-token")
+        self.assertEqual(res1["created"], 1)
+
+        mock_fetch.return_value = [
+            {
+                "id": "google-evt-99",
+                "status": "confirmed",
+                "summary": "Updated Title",
+                "location": "Room 300",
+                "start": {"dateTime": "2026-12-10T16:00:00Z"},
+                "end": {"dateTime": "2026-12-10T17:00:00Z"},
+            }
+        ]
+        res2 = sync_google_events(self.user, "fake-token")
+        self.assertEqual(res2["created"], 0)
+        self.assertEqual(res2["updated"], 1)
+
+        evt = Event.objects.get(user=self.user, external_id="google-evt-99")
+        self.assertEqual(evt.title, "Updated Title")
+        self.assertEqual(evt.location, "Room 300")

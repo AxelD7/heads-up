@@ -1,3 +1,5 @@
+import secrets
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
@@ -7,6 +9,12 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .models import Event, ExternalFeed
 from .forms import CalendarImportForm, EventForm
+from .google_calendar import (
+    GOOGLE_CALENDAR_EVENTS_URL,
+    build_google_auth_url,
+    exchange_code_for_tokens,
+    sync_google_events,
+)
 from .services import fetch_ics_from_url, sync_ics_events
 
 
@@ -259,11 +267,29 @@ def import_calendar(request):
 def sync_feed(request, pk):
     """
     Re-fetch and synchronize an existing ExternalFeed owned by the logged-in user.
+    Supports both iCal (.ics) feeds and Google Calendar API feeds.
     """
     feed = get_object_or_404(ExternalFeed, pk=pk, user=request.user)
     if not feed.feed_url:
         messages.error(request, f"{feed.source_type} feed was uploaded from a file and has no URL to re-sync.")
         return redirect("events:event_list")
+
+    # Handle Google Calendar API feeds using the session access token
+    if feed.feed_url == GOOGLE_CALENDAR_EVENTS_URL:
+        access_token = request.session.get("google_access_token")
+        if not access_token:
+            return redirect("events:google_connect")
+        try:
+            summary = sync_google_events(user=request.user, access_token=access_token, feed=feed)
+            messages.success(
+                request,
+                f"Synced Google Calendar API: {summary['created']} added, "
+                f"{summary['updated']} updated, {summary['skipped']} unchanged.",
+            )
+            return redirect(f"{reverse('events:event_list')}?source=Google")
+        except ValueError:
+            request.session.pop("google_access_token", None)
+            return redirect("events:google_connect")
 
     try:
         ics_content = fetch_ics_from_url(feed.feed_url)
@@ -290,3 +316,60 @@ def delete_feed(request, pk):
     feed.delete()
     messages.info(request, f"Removed {source_name} calendar feed and its imported events.")
     return redirect("events:event_list")
+
+
+@login_required
+def google_connect(request):
+    """
+    Start the Google OAuth 2.0 flow to grant read-only access to the user's Google Calendar.
+    """
+    if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
+        messages.error(
+            request,
+            "Google Calendar API credentials are not configured in .env yet.",
+        )
+        return redirect("events:import_calendar")
+
+    # Store a random state token in the session to protect against CSRF attacks
+    state = secrets.token_urlsafe(32)
+    request.session["google_oauth_state"] = state
+    return redirect(build_google_auth_url(state))
+
+
+@login_required
+def google_callback(request):
+    """
+    Receive Google's OAuth 2.0 callback, verify state, exchange the code for an access token,
+    and import the user's Google Calendar events into HeadsUp.
+    """
+    error = request.GET.get("error")
+    if error:
+        messages.error(request, f"Google authorization canceled or failed: {error}")
+        return redirect("events:import_calendar")
+
+    expected_state = request.session.pop("google_oauth_state", None)
+    returned_state = request.GET.get("state")
+    if not expected_state or expected_state != returned_state:
+        messages.error(request, "Invalid OAuth state. Please try connecting Google Calendar again.")
+        return redirect("events:import_calendar")
+
+    code = request.GET.get("code")
+    if not code:
+        messages.error(request, "Missing authorization code from Google.")
+        return redirect("events:import_calendar")
+
+    try:
+        tokens = exchange_code_for_tokens(code)
+        access_token = tokens["access_token"]
+        request.session["google_access_token"] = access_token
+
+        summary = sync_google_events(user=request.user, access_token=access_token)
+        messages.success(
+            request,
+            f"Google Calendar synced: {summary['created']} added, "
+            f"{summary['updated']} updated, {summary['skipped']} unchanged.",
+        )
+        return redirect(f"{reverse('events:event_list')}?source=Google")
+    except ValueError as exc:
+        messages.error(request, f"Google Calendar sync failed: {exc}")
+        return redirect("events:import_calendar")

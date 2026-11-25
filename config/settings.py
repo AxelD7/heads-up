@@ -10,10 +10,20 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load local .env file if present (keeps OAuth secrets out of Git)
+_env_path = BASE_DIR / '.env'
+if _env_path.exists():
+    for _raw_line in _env_path.read_text(encoding='utf-8').splitlines():
+        _line = _raw_line.strip()
+        if _line and not _line.startswith('#') and '=' in _line:
+            _key, _val = _line.split('=', 1)
+            os.environ.setdefault(_key.strip(), _val.strip())
 
 
 # Quick-start development settings - unsuitable for production
@@ -137,3 +147,11 @@ DEFAULT_FROM_EMAIL = 'Heads Up <headsup475@gmail.com>'
 AUTH_USER_MODEL = 'users.CustomUser'
 # TODO: Once a log in view is created, change this from /admin to whatever url the login is at.
 LOGIN_URL='/admin'
+
+# Google Calendar API (OAuth 2.0) settings loaded from .env / environment variables
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+GOOGLE_REDIRECT_URI = os.environ.get(
+    'GOOGLE_REDIRECT_URI',
+    'http://127.0.0.1:8000/google/callback/',
+)

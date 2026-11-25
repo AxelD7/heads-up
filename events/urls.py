@@ -30,4 +30,8 @@ urlpatterns = [
     path("import/", views.import_calendar, name="import_calendar"),
     path("feeds/<int:pk>/sync/", views.sync_feed, name="sync_feed"),
     path("feeds/<int:pk>/delete/", views.delete_feed, name="delete_feed"),
+
+    # Google Calendar API (OAuth 2.0) routes
+    path("google/connect/", views.google_connect, name="google_connect"),
+    path("google/callback/", views.google_callback, name="google_callback"),
 ]

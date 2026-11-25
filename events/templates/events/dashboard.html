@@ -77,6 +77,9 @@
           Show All Events
         </a>
       {% endif %}
+      <a href="{% url 'events:google_connect' %}" class="btn btn-light text-dark fw-semibold btn-sm">
+        Connect Google
+      </a>
       <a href="{% url 'events:import_calendar' %}{% if active_source %}?source={{ active_source }}{% endif %}" class="btn btn-info text-dark fw-semibold btn-sm">
         + Import / Sync Calendar
       </a>

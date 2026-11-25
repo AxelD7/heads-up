@@ -4,9 +4,33 @@
 
 {% block content %}
 <div class="container mt-3" style="max-width: 720px;">
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <!-- One-Click Google Calendar API Sync Card -->
+  <div class="card shadow-sm border-0 mb-3">
+    <div class="card-body p-4 d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div>
+        <h2 class="h5 fw-bold mb-1">Connect Google Calendar (API)</h2>
+        <p class="text-muted small mb-0">
+          Sign in securely with Google OAuth 2.0 to import your real Google Calendar events directly.
+        </p>
+      </div>
+      <a href="{% url 'events:google_connect' %}" class="btn btn-outline-danger fw-semibold">
+        Connect Google Calendar
+      </a>
+    </div>
+  </div>
+
   <div class="card shadow-sm border-0">
     <div class="card-body p-4">
-      <h2 class="h4 fw-bold mb-1">Import External Calendar</h2>
+      <h2 class="h4 fw-bold mb-1">Import External Calendar (.ics)</h2>
       <p class="text-muted small mb-4">
         Sync your classes from Moodle or events from Google Calendar using an iCal (.ics) feed link or file.
       </p>
