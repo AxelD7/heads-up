@@ -134,5 +134,18 @@ MAILERS = {
 }
 
 AUTH_USER_MODEL = 'users.CustomUser'
-# TODO: Once a log in view is created, change this from /admin to whatever url the login is at.
-LOGIN_URL='/admin'
+
+# Authentication
+# https://docs.djangoproject.com/en/6.1/topics/auth/default/
+
+# Where @login_required sends people who are not logged in (the "login" url name in config/urls.py).
+LOGIN_URL = 'login'
+# Where to go after logging in (unless the url has a ?next=... value).
+LOGIN_REDIRECT_URL = 'events:event_list'
+# Where to go after logging out.
+LOGOUT_REDIRECT_URL = 'login'
+
+# Lets people log in with their username OR their email (see users/backends.py).
+AUTHENTICATION_BACKENDS = [
+    'users.backends.UsernameOrEmailBackend',
+]

@@ -1,0 +1,22 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+  <!-- Simple layout for the log in / sign up pages (no sidebar, since the user isn't logged in yet) -->
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Heads Up{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/auth.css' %}" />
+  </head>
+
+  <body>
+    <main class="auth-card">
+      <div class="auth-brand">
+        <span class="header-text-a">Heads</span><span class="header-text-b">Up</span>
+      </div>
+
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

@@ -19,12 +19,18 @@ from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth.views import LogoutView
 
+from users.views import UserLoginView, signup
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("users/", include("users.urls")),
+
+    # Log in / sign up pages (views live in users/views.py)
+    path("login/", UserLoginView.as_view(), name="login"),
+    path("signup/", signup, name="signup"),
     
     # Since events will be the core of our app, all urls will start with no prefix
     path("", include("events.urls")),
-    # Path that removes user from the currrent session, redirects to '/' endpoint
-    path("logout/", LogoutView.as_view(next_page="/"), name="logout"),
+    # Path that removes user from the currrent session, redirects to LOGOUT_REDIRECT_URL (the login page)
+    path("logout/", LogoutView.as_view(), name="logout"),
 ]
