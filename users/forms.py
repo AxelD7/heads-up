@@ -9,6 +9,11 @@ from .models import CustomUser
 PHONE_ALLOWED_CHARS = re.compile(r"\+?[\d\s().-]+")
 
 
+def only_digits(text):
+    """Keep just the digits of a phone number, e.g. "(555) 010-0199" -> "5550100199"."""
+    return "".join(ch for ch in text if ch.isdigit())
+
+
 class SignUpForm(UserCreationForm):
     """
     Form used on the sign up (account creation) page.
@@ -78,6 +83,13 @@ class SignUpForm(UserCreationForm):
         digit_count = sum(ch.isdigit() for ch in phone)
         if not 7 <= digit_count <= 15:
             raise forms.ValidationError("Enter a phone number with 7 to 15 digits.")
+
+        # Only one account per phone number. Compare just the digits, so
+        # "555-010-0199" and "(555) 010 0199" count as the same number.
+        digits = only_digits(phone)
+        for existing in CustomUser.objects.values_list("phone_number", flat=True):
+            if only_digits(existing) == digits:
+                raise forms.ValidationError("An account with this phone number already exists.")
         return phone
 
 
