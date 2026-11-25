@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
@@ -43,6 +44,9 @@ def event_list(request):
             # These preferences let the template and client-side calendar format dates consistently.
             "date_format": request.user.date_format,
             "time_format": request.user.time_format,
+            "date_fmt": "j/n/Y" if request.user.date_format == "D/M/Y" else "n/j/Y",
+            "time_fmt": "H:i" if request.user.time_format == "24h" else "g:i A",
+            "event_categories": Event.Category.choices,
         },
     )
 
@@ -79,10 +83,34 @@ def event_create(request):
             event.user = request.user
             event.save()
 
+            if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                return JsonResponse({
+                    "id": event.pk,
+                    "title": event.title,
+                    "start": event.start_time.isoformat(),
+                    "end": event.end_time.isoformat(),
+                    "url": reverse("events:event_detail", kwargs={"pk": event.pk}),
+                    "category": event.category,
+                })
+
             return redirect("events:event_detail", pk=event.pk)
 
     else:
         form = EventForm()
+
+    if (
+        request.method == "POST"
+        and request.headers.get("x-requested-with") == "XMLHttpRequest"
+    ):
+        return JsonResponse(
+            {
+                "errors": {
+                    field: [str(error) for error in errors]
+                    for field, errors in form.errors.items()
+                }
+            },
+            status=400,
+        )
 
     return render(
         request,

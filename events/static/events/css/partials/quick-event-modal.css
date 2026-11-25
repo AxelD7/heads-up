@@ -1,0 +1,73 @@
+/* Quick event dialog */
+#quick-event-dialog {
+  position: fixed;
+  top: 24px;
+  right: 0;
+  left: 0;
+  margin: 0 auto;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 18px;
+  border: 1px solid #d3dce4;
+  border-radius: 14px;
+  color: #152638;
+  box-shadow: 0 12px 32px rgba(21, 38, 56, 0.2);
+}
+
+#quick-event-dialog::backdrop {
+  background: rgba(21, 38, 56, 0.45);
+}
+
+#quick-event-dialog form {
+  display: grid;
+  gap: 8px;
+}
+
+.quick-event-heading,
+.quick-event-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quick-event-heading {
+  margin-bottom: 8px;
+}
+
+.quick-event-heading h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.quick-event-close {
+  border: 0;
+  background: transparent;
+  color: #596b7a;
+  font-size: 1.7rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.quick-event-actions {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.quick-event-errors,
+.quick-event-field-error {
+  color: #b42318;
+  font-size: 0.85rem;
+}
+
+.quick-event-errors:empty,
+.quick-event-field-error:empty {
+  display: none;
+}
+
+.quick-event-submit {
+  border-color: #176b91;
+  background: #176b91;
+  color: #fff;
+}

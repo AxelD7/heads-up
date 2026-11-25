@@ -270,6 +270,8 @@ class EventViewTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["date_format"], "D/M/Y")
         self.assertEqual(response.context["time_format"], "24h")
+        self.assertEqual(response.context["date_fmt"], "j/n/Y")
+        self.assertEqual(response.context["time_fmt"], "H:i")
         self.assertIn(self.event, response.context["events"])
         self.assertNotIn(past_event, response.context["events"])
 

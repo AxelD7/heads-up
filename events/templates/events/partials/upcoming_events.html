@@ -1,0 +1,63 @@
+<!-- Upcoming events-->
+<aside
+  class="dashboard-card upcoming-card"
+  aria-labelledby="upcoming-title"
+>
+  <header class="upcoming-heading">
+    <div>
+      <p class="dashboard-title">Coming up</p>
+      <h2 id="upcoming-title">Upcoming events</h2>
+    </div>
+    <span
+      class="material-symbols-outlined upcoming-heading-icon"
+      aria-hidden="true"
+    >
+      event_upcoming
+    </span>
+  </header>
+
+  <!-- Upcoming event list -->
+  <div class="upcoming-scroll">
+    <ul class="upcoming-list">
+      {% for event in events %}
+      <li class="upcoming-item">
+        <a
+          class="upcoming-event-link"
+          href="{% url 'events:event_detail' event.pk %}"
+        >
+          <span
+            class="event-color-dot"
+            aria-hidden="true"
+          ></span>
+          <span class="upcoming-event-content">
+            <span class="upcoming-event-title">{{ event.title }}</span>
+            <span class="upcoming-event-datetime">
+              {{ event.start_time|date:date_fmt }}
+              {{ event.start_time|date:time_fmt }} -
+              {{ event.end_time|date:time_fmt }}
+            </span>
+            {% if event.location %}
+            <span class="upcoming-event-location">
+              <span class="material-symbols-outlined" aria-hidden="true"
+                >location_on</span
+              >
+              {{ event.location }}
+            </span>
+            {% endif %}
+          </span>
+          <span
+            class="material-symbols-outlined upcoming-event-arrow"
+            aria-hidden="true"
+          >
+            arrow_outward
+          </span>
+        </a>
+      </li>
+      {% empty %}
+      <li class="empty-upcoming">
+        No upcoming events. Your calendar is clear.
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</aside>

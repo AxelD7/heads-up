@@ -3,14 +3,17 @@
 {% block title %}Calendar | HeadsUp{% endblock %}
 
 {% block extra_head %}
-
 {{ block.super }}
-<link rel="stylesheet" href="{% static 'css/dashboard.css' %}" />
+<link rel="stylesheet" href="{% static 'events/css/dashboard.css' %}" />
+<link rel="stylesheet" href="{% static 'events/css/partials/calendar.css' %}" />
+<link rel="stylesheet" href="{% static 'events/css/partials/quick-event-modal.css' %}" />
+<link rel="stylesheet" href="{% static 'events/css/partials/upcoming-events.css' %}" />
+<link rel="stylesheet" href="{% static 'events/css/partials/responsive.css' %}" />
 {% endblock %}
 
 {% block content %}
+<!-- Dashboard page heading -->
 <section class="dashboard" aria-labelledby="dashboard-title">
-  <!-- Page title -->
   <header class="dashboard-heading">
     <div>
       <p class="dashboard-title">Your schedule</p>
@@ -20,131 +23,17 @@
 
   <!-- Calendar and upcoming event cards -->
   <div class="dashboard-cards">
-    <!-- Calendar controls -->
-    <section
-      class="dashboard-card calendar-card"
-      aria-labelledby="calendar-period"
-    >
-      <header class="calendar-toolbar">
-        <div class="calendar-navigation">
-          <h2 class="calendar-current-period" id="calendar-period">
-            {% now "F Y" %}
-          </h2>
-          <div
-            class="calendar-navigation-buttons"
-            aria-label="Calendar navigation"
-          >
-            <button
-              class="icon-button"
-              type="button"
-              aria-label="Previous month"
-            >
-              <span class="material-symbols-outlined" aria-hidden="true"
-                >chevron_left</span
-              >
-            </button>
-            <button class="today-button" type="button">Today</button>
-            <button class="icon-button" type="button" aria-label="Next month">
-              <span class="material-symbols-outlined" aria-hidden="true"
-                >chevron_right</span
-              >
-            </button>
-          </div>
-        </div>
-
-        <div
-          class="calendar-view-switcher"
-          role="group"
-          aria-label="Calendar view"
-        >
-          <button type="button" aria-pressed="true">Month</button>
-          <button type="button" aria-pressed="false">Week</button>
-          <button type="button" aria-pressed="false">Day</button>
-        </div>
-      </header>
-
-      <div class="calendar-grid">
-        <div class="calendar-weekdays">
-          <p>Calendar goes here!</p>
-        </div>
-        <div class="calendar-days"></div>
-      </div>
-    </section>
-
-    <!-- Upcoming events, with links to their detail pages -->
-    <aside
-      class="dashboard-card upcoming-card"
-      aria-labelledby="upcoming-title"
-    >
-      <header class="upcoming-heading">
-        <div>
-          <p class="dashboard-title">Coming up</p>
-          <h2 id="upcoming-title">Upcoming events</h2>
-        </div>
-        <span
-          class="material-symbols-outlined upcoming-heading-icon"
-          aria-hidden="true"
-        >
-          event_upcoming
-        </span>
-      </header>
-
-      <div class="upcoming-scroll">
-        <ul class="upcoming-list">
-          {% for event in events %}
-          <li class="upcoming-item">
-            <a
-              class="upcoming-event-link"
-              href="{% url 'events:event_detail' event.pk %}"
-            >
-              <span
-                class="event-color-dot"
-                aria-hidden="true"
-              ></span>
-              <span class="upcoming-event-content">
-                <span class="upcoming-event-title">{{ event.title }}</span>
-                <span class="upcoming-event-datetime">
-                  <!-- Date Formatting -->
-                  {% if date_format == "D/M/Y" %}
-                  {{ event.start_time|date:"j/n/Y" }}
-                  {% else %}
-                  {{ event.start_time|date:"n/j/Y" }}
-                  {% endif %}
-
-                  <!-- Time Formatting -->
-                  {% if time_format == "24h" %}
-                  {{ event.start_time|date:"H:i" }} -
-                  {{ event.end_time|date:"H:i" }}
-                  {% else %}
-                  {{ event.start_time|date:"g:i A" }} -
-                  {{ event.end_time|date:"g:i A" }}
-                  {% endif %}
-                </span>
-                {% if event.location %}
-                <span class="upcoming-event-location">
-                  <span class="material-symbols-outlined" aria-hidden="true"
-                    >location_on</span
-                  >
-                  {{ event.location }}
-                </span>
-                {% endif %}
-              </span>
-              <span
-                class="material-symbols-outlined upcoming-event-arrow"
-                aria-hidden="true"
-              >
-                arrow_outward
-              </span>
-            </a>
-          </li>
-          {% empty %}
-          <li class="empty-upcoming">
-            No upcoming events. Your calendar is clear.
-          </li>
-          {% endfor %}
-        </ul>
-      </div>
-    </aside>
+    {% include "events/partials/calendar_card.html" %}
+    {% include "events/partials/upcoming_events.html" %}
   </div>
 </section>
+<!-- Quick-event creation modal -->
+{% include "events/partials/quick_event_modal.html" %}
+<!-- Calendar data and scripts -->
+{{ dashboard_events|json_script:"dashboard-events-data" }}
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.15/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6.1.15/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@6.1.15/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/interaction@6.1.15/index.global.min.js"></script>
+<script src="{% static 'events/js/dashboard.js' %}" defer></script>
 {% endblock %}
