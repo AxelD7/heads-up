@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -17,7 +19,10 @@ def event_list(request):
     """
     events = Event.objects.filter(user=request.user).order_by("start_time")
     # Stores list of events that are after the current time to use in the front end.
-    upcoming_events = events.filter(start_time__gte=timezone.now())
+    upcoming_events = events.filter(
+        start_time__gte=timezone.now(),
+        start_time__lte=timezone.now() + timedelta(days=7),
+    )
     # Build the JSON dashboard event data that the front end needs for the calendar.
     dashboard_events = []
     for event in events:
