@@ -108,7 +108,7 @@ if (calendarGrid && calendarDays && calendarPeriod && eventsElement) {
     // Runs when the user clicks or drags across a time slot in Week view
     select(info) {
       if (!quickEventDialog || info.view.type !== "timeGridWeek") return;
-      openQuickEventModal(info.start, info.start.getHours());
+      openQuickEventModal(info.start, info.end);
       // Clear FullCalendar's blue selection highlight once the modal opens
       calendar.unselect();
     },
@@ -128,16 +128,18 @@ if (calendarGrid && calendarDays && calendarPeriod && eventsElement) {
   }
 
   // Opens the quick-event popup dialog and pre-fills its start and end time inputs.
-  function openQuickEventModal(date, selectedHour = null) {
+  function openQuickEventModal(date, selectedEnd = null) {
     if (!quickEventDialog || !quickEventForm) return;
 
     const start = new Date(date);
-    // If an hour was clicked in week view, use it; otherwise default to 9:00 AM
-    start.setHours(selectedHour !== null ? selectedHour : 9, 0, 0, 0);
-
-    // Default the event duration to 1 hour
-    const end = new Date(start);
-    end.setHours(end.getHours() + 1);
+    // Checks if a user had a selected end time for the quick event pop up. This is when a user clicks and drags
+    // for the quick event.
+    const end = selectedEnd ? new Date(selectedEnd) : new Date(start);
+    if (!selectedEnd) {
+      start.setHours(9, 0, 0, 0);
+      end.setTime(start.getTime());
+      end.setHours(end.getHours() + 1);
+    }
 
     // Populate the form inputs and clear any leftover validation errors from previous attempts
     quickEventForm.elements.start_time.value = toLocalDateTimeInput(start);
