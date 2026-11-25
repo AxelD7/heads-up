@@ -482,4 +482,4 @@ class EventViewTestCase(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/admin", response.url)
+        self.assertIn(reverse("login"), response.url)

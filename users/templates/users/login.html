@@ -1,0 +1,28 @@
+{% extends "users/auth_base.html" %}
+
+{% block title %}Log in | Heads Up{% endblock %}
+
+{% block content %}
+  <h1>Log in</h1>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="form-errors">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    {% for field in form %}
+      {% include "users/_field.html" %}
+    {% endfor %}
+
+    <!-- Keeps track of the page the user was trying to reach, so we can send them there after logging in -->
+    <input type="hidden" name="next" value="{{ next }}" />
+
+    <button type="submit" class="auth-button">Log in</button>
+  </form>
+
+  <p class="auth-switch">Don't have an account? <a href="{% url 'signup' %}">Sign up</a></p>
+{% endblock %}
