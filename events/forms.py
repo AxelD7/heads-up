@@ -76,3 +76,68 @@ class EventForm(forms.ModelForm):
             )
 
         return cleaned_data
+
+
+class CalendarImportForm(forms.Form):
+    """
+    Form allowing users to import events by pasting a Moodle/Google .ics URL
+    or uploading a downloaded .ics file from their device.
+    """
+    SOURCE_CHOICES = [
+        ("Moodle", "Moodle"),
+        ("Google", "Google Calendar"),
+        ("OUSail", "OUSail"),
+    ]
+
+    source_type = forms.ChoiceField(
+        choices=SOURCE_CHOICES,
+        widget=forms.Select(attrs={"class": "form-select"}),
+        label="Calendar Source",
+    )
+    feed_url = forms.URLField(
+        required=False,
+        max_length=500,
+        widget=forms.URLInput(attrs={
+            "class": "form-control",
+            "placeholder": "https://calendar.google.com/calendar/ical/... or Moodle export URL",
+        }),
+        label="iCal (.ics) Feed URL",
+    )
+    ics_file = forms.FileField(
+        required=False,
+        widget=forms.ClearableFileInput(attrs={
+            "class": "form-control",
+            "accept": ".ics,text/calendar",
+        }),
+        label="Or Upload a .ics File",
+    )
+    category = forms.ChoiceField(
+        choices=Event.Category.choices,
+        initial=Event.Category.ACADEMIC,
+        widget=forms.Select(attrs={"class": "form-select"}),
+        label="Default Category",
+    )
+
+    def clean_feed_url(self):
+        """
+        Convert webcal:// links into https:// so Python can fetch them cleanly.
+        """
+        url = self.cleaned_data.get("feed_url", "").strip()
+        if url.startswith("webcal://"):
+            url = "https://" + url[len("webcal://"):]
+        return url
+
+    def clean(self):
+        """
+        Ensure the user provided either a feed URL or an uploaded .ics file.
+        """
+        cleaned_data = super().clean()
+        feed_url = cleaned_data.get("feed_url")
+        ics_file = cleaned_data.get("ics_file")
+
+        if not feed_url and not ics_file:
+            raise forms.ValidationError(
+                "Please enter an iCal (.ics) feed URL or upload a .ics file."
+            )
+
+        return cleaned_data

@@ -1,12 +1,14 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
 from django.urls import reverse
 
 from .models import Event, ExternalFeed
+from .services import parse_ics_content, sync_ics_events
 
 
 class EventModelTestCase(TestCase):
@@ -483,3 +485,320 @@ class EventViewTestCase(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertIn("/admin", response.url)
+
+
+class IcalParserServiceTestCase(TestCase):
+    """
+    Test suite verifying the RFC 5545 .ics parser utility, SHA-256 hash generation,
+    and duplicate-safe event synchronization.
+    """
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="icaluser",
+            email="ical@example.com",
+            password="testpassword123",
+            phone_number="555-0188",
+        )
+
+    def test_parse_standard_utc_vevent_and_hash(self):
+        """
+        Verify a standard UTC VEVENT is parsed into internal fields with a 64-character SHA-256 hash.
+        """
+        ics_data = (
+            "BEGIN:VCALENDAR\r\n"
+            "VERSION:2.0\r\n"
+            "BEGIN:VEVENT\r\n"
+            "UID:moodle-event-101\r\n"
+            "SUMMARY:CIS 2999 Midterm\r\n"
+            "DTSTART:20261201T140000Z\r\n"
+            "DTEND:20261201T153000Z\r\n"
+            "LOCATION:Dodge Hall 204\r\n"
+            "DESCRIPTION:Bring a calculator.\r\n"
+            "END:VEVENT\r\n"
+            "END:VCALENDAR\r\n"
+        )
+
+        parsed = parse_ics_content(ics_data)
+        self.assertEqual(len(parsed), 1)
+
+        item = parsed[0]
+        expected_start = datetime(2026, 12, 1, 14, 0, tzinfo=dt_timezone.utc)
+        expected_end = datetime(2026, 12, 1, 15, 30, tzinfo=dt_timezone.utc)
+
+        self.assertEqual(item["external_id"], "moodle-event-101")
+        self.assertEqual(item["title"], "CIS 2999 Midterm")
+        self.assertEqual(item["start_time"], expected_start)
+        self.assertEqual(item["end_time"], expected_end)
+        self.assertEqual(item["location"], "Dodge Hall 204")
+        self.assertEqual(item["description"], "Bring a calculator.")
+        self.assertEqual(len(item["content_hash"]), 64)
+        self.assertEqual(
+            item["content_hash"],
+            Event.build_hash(
+                "CIS 2999 Midterm",
+                expected_start,
+                expected_end,
+                "Dodge Hall 204",
+                "Bring a calculator.",
+            ),
+        )
+
+    def test_parse_folded_lines_escaped_chars_and_valarm(self):
+        """
+        Verify folded multi-line fields, escaped punctuation, and nested VALARM blocks
+        are handled without corrupting the event's description.
+        """
+        ics_data = (
+            "BEGIN:VCALENDAR\r\n"
+            "BEGIN:VEVENT\r\n"
+            "UID:google-uid-202\r\n"
+            "SUMMARY:Team Meeting\\, Phase 2\\; Review\r\n"
+            "DTSTART:20261202T180000Z\r\n"
+            "DTEND:20261202T190000Z\r\n"
+            "DESCRIPTION:Line one\\nLine two continues\r\n"
+            "  on the next line\r\n"
+            "BEGIN:VALARM\r\n"
+            "ACTION:DISPLAY\r\n"
+            "DESCRIPTION:This is an alarm reminder\r\n"
+            "END:VALARM\r\n"
+            "END:VEVENT\r\n"
+            "END:VCALENDAR\r\n"
+        )
+
+        parsed = parse_ics_content(ics_data)
+        self.assertEqual(len(parsed), 1)
+        self.assertEqual(parsed[0]["title"], "Team Meeting, Phase 2; Review")
+        self.assertEqual(parsed[0]["description"], "Line one\nLine two continues on the next line")
+
+    def test_parse_all_day_and_missing_dtend_defaults(self):
+        """
+        Verify all-day events and events missing DTEND receive valid end_time > start_time.
+        """
+        ics_data = (
+            "BEGIN:VCALENDAR\n"
+            "BEGIN:VEVENT\n"
+            "UID:allday-1\n"
+            "SUMMARY:Final Project Due\n"
+            "DTSTART;VALUE=DATE:20261210\n"
+            "END:VEVENT\n"
+            "BEGIN:VEVENT\n"
+            "UID:notend-2\n"
+            "SUMMARY:Assignment Deadline\n"
+            "DTSTART:20261211T235900Z\n"
+            "END:VEVENT\n"
+            "END:VCALENDAR\n"
+        )
+
+        parsed = parse_ics_content(ics_data)
+        self.assertEqual(len(parsed), 2)
+
+        # All-day defaults to 1 day duration
+        self.assertEqual(parsed[0]["end_time"] - parsed[0]["start_time"], timedelta(days=1))
+        # Timed event missing DTEND defaults to 1 hour duration
+        self.assertEqual(parsed[1]["end_time"] - parsed[1]["start_time"], timedelta(hours=1))
+
+    def test_sync_ics_events_creates_skips_and_updates(self):
+        """
+        Verify syncing .ics content creates new imported events, skips identical re-syncs
+        without duplicating, and updates existing events when the SHA-256 hash changes.
+        """
+        feed = ExternalFeed.objects.create(
+            user=self.user,
+            source_type="Moodle",
+            feed_url="https://moodle.oakland.edu/calendar/export.ics",
+        )
+
+        initial_ics = (
+            "BEGIN:VCALENDAR\n"
+            "BEGIN:VEVENT\n"
+            "UID:moodle-999\n"
+            "SUMMARY:Homework 4\n"
+            "DTSTART:20261215T160000Z\n"
+            "DTEND:20261215T170000Z\n"
+            "LOCATION:Online\n"
+            "END:VEVENT\n"
+            "END:VCALENDAR\n"
+        )
+
+        # 1. First sync creates the event
+        res1 = sync_ics_events(self.user, initial_ics, feed=feed)
+        self.assertEqual(res1["created"], 1)
+        self.assertEqual(res1["updated"], 0)
+        self.assertEqual(res1["skipped"], 0)
+        feed.refresh_from_db()
+        self.assertIsNotNone(feed.last_synced_at)
+
+        event = Event.objects.get(feed=feed, external_id="moodle-999")
+        self.assertTrue(event.is_imported)
+        old_hash = event.content_hash
+
+        # 2. Second sync with identical content skips (no duplicates)
+        res2 = sync_ics_events(self.user, initial_ics, feed=feed)
+        self.assertEqual(res2["created"], 0)
+        self.assertEqual(res2["updated"], 0)
+        self.assertEqual(res2["skipped"], 1)
+        self.assertEqual(Event.objects.filter(feed=feed).count(), 1)
+
+        # 3. Third sync with updated time and location updates the existing event and hash
+        updated_ics = (
+            "BEGIN:VCALENDAR\n"
+            "BEGIN:VEVENT\n"
+            "UID:moodle-999\n"
+            "SUMMARY:Homework 4 (Extended)\n"
+            "DTSTART:20261216T160000Z\n"
+            "DTEND:20261216T170000Z\n"
+            "LOCATION:Moodle Portal\n"
+            "END:VEVENT\n"
+            "END:VCALENDAR\n"
+        )
+        res3 = sync_ics_events(self.user, updated_ics, feed=feed)
+        self.assertEqual(res3["created"], 0)
+        self.assertEqual(res3["updated"], 1)
+        self.assertEqual(res3["skipped"], 0)
+
+        event.refresh_from_db()
+        self.assertEqual(event.title, "Homework 4 (Extended)")
+        self.assertEqual(event.location, "Moodle Portal")
+        self.assertNotEqual(event.content_hash, old_hash)
+        self.assertEqual(Event.objects.filter(feed=feed).count(), 1)
+
+
+class CalendarDashboardAndImportTestCase(TestCase):
+    """
+    Test suite verifying the FullCalendar dashboard source filtering (Moodle vs Google),
+    the calendar import view, and feed ownership security.
+    """
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="caluser",
+            email="cal@example.com",
+            password="testpassword123",
+            phone_number="555-0177",
+        )
+        self.other_user = get_user_model().objects.create_user(
+            username="othercaluser",
+            email="othercal@example.com",
+            password="testpassword123",
+            phone_number="555-0178",
+        )
+        self.client.force_login(self.user)
+        self.now = timezone.now()
+
+        self.moodle_feed = ExternalFeed.objects.create(
+            user=self.user,
+            source_type="Moodle",
+            feed_url="https://moodle.example.com/cal.ics",
+        )
+        self.google_feed = ExternalFeed.objects.create(
+            user=self.user,
+            source_type="Google",
+            feed_url="https://calendar.google.com/cal.ics",
+        )
+
+        self.moodle_event = Event.objects.create(
+            user=self.user,
+            feed=self.moodle_feed,
+            title="Moodle Quiz",
+            start_time=self.now + timedelta(days=1),
+            end_time=self.now + timedelta(days=1, hours=1),
+            is_imported=True,
+            external_id="m1",
+        )
+        self.google_event = Event.objects.create(
+            user=self.user,
+            feed=self.google_feed,
+            title="Google Dentist",
+            start_time=self.now + timedelta(days=2),
+            end_time=self.now + timedelta(days=2, hours=1),
+            is_imported=True,
+            external_id="g1",
+        )
+        self.manual_event = Event.objects.create(
+            user=self.user,
+            title="Manual Study",
+            start_time=self.now + timedelta(days=3),
+            end_time=self.now + timedelta(days=3, hours=1),
+        )
+
+    def test_dashboard_source_filtering_moodle_and_google(self):
+        """
+        Dashboard must show all user events by default, and filter accurately when
+        '?source=Moodle' or '?source=Google' is requested from the sidebar tabs.
+        """
+        # Default (All)
+        resp_all = self.client.get(reverse("events:event_list"))
+        self.assertEqual(resp_all.status_code, 200)
+        self.assertEqual(len(resp_all.context["calendar_events"]), 3)
+
+        # Moodle tab filter
+        resp_moodle = self.client.get(reverse("events:event_list") + "?source=Moodle")
+        self.assertEqual(resp_moodle.status_code, 200)
+        moodle_titles = [e["title"] for e in resp_moodle.context["calendar_events"]]
+        self.assertEqual(moodle_titles, ["Moodle Quiz"])
+
+        # Google Calendar tab filter
+        resp_google = self.client.get(reverse("events:event_list") + "?source=Google")
+        self.assertEqual(resp_google.status_code, 200)
+        google_titles = [e["title"] for e in resp_google.context["calendar_events"]]
+        self.assertEqual(google_titles, ["Google Dentist"])
+
+    def test_import_calendar_uploaded_ics_file(self):
+        """
+        Uploading a valid .ics file on /import/ creates the ExternalFeed and Event records.
+        """
+        ics_bytes = (
+            b"BEGIN:VCALENDAR\r\n"
+            b"BEGIN:VEVENT\r\n"
+            b"UID:upload-123\r\n"
+            b"SUMMARY:Uploaded Lab Session\r\n"
+            b"DTSTART:20261220T150000Z\r\n"
+            b"DTEND:20261220T160000Z\r\n"
+            b"END:VEVENT\r\n"
+            b"END:VCALENDAR\r\n"
+        )
+        uploaded = SimpleUploadedFile("moodle.ics", ics_bytes, content_type="text/calendar")
+
+        response = self.client.post(
+            reverse("events:import_calendar"),
+            data={
+                "source_type": "Moodle",
+                "category": "academic",
+                "ics_file": uploaded,
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            Event.objects.filter(
+                user=self.user,
+                title="Uploaded Lab Session",
+                is_imported=True,
+                feed__source_type="Moodle",
+            ).exists()
+        )
+
+    def test_import_calendar_requires_url_or_file(self):
+        """
+        Submitting the import form with neither URL nor file must fail validation.
+        """
+        response = self.client.post(
+            reverse("events:import_calendar"),
+            data={"source_type": "Moodle", "category": "academic"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["form"].is_valid())
+
+    def test_other_user_cannot_delete_or_sync_feed(self):
+        """
+        Users must receive 404 when attempting to sync or delete another user's feed.
+        """
+        other_feed = ExternalFeed.objects.create(
+            user=self.other_user,
+            source_type="Google",
+            feed_url="https://calendar.google.com/other.ics",
+        )
+        resp_sync = self.client.post(reverse("events:sync_feed", kwargs={"pk": other_feed.pk}))
+        resp_del = self.client.post(reverse("events:delete_feed", kwargs={"pk": other_feed.pk}))
+        self.assertEqual(resp_sync.status_code, 404)
+        self.assertEqual(resp_del.status_code, 404)

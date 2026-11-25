@@ -58,8 +58,29 @@
           </ul>
         </nav>
 
-        <!-- Other calendar options can be added here (Example: specific calendars like work, school, etc... user defined) -->
-        <div class="secondary-nav"></div>
+        <!-- Other calendar options (Moodle, Google Calendar, and Import) -->
+        <nav class="sidebar-nav secondary-nav mt-3 pt-3 border-top border-secondary">
+          <ul class="nav-list">
+            <li class="moodle-view">
+              <a href="{% url 'events:event_list' %}?source=Moodle" class="nav-link">
+                <span class="material-symbols-outlined">school</span>
+                <span class="sidebar-label">Moodle</span>
+              </a>
+            </li>
+            <li class="google-view">
+              <a href="{% url 'events:event_list' %}?source=Google" class="nav-link">
+                <span class="material-symbols-outlined">event</span>
+                <span class="sidebar-label">Google Calendar</span>
+              </a>
+            </li>
+            <li class="import-view">
+              <a href="{% url 'events:import_calendar' %}" class="nav-link">
+                <span class="material-symbols-outlined">cloud_sync</span>
+                <span class="sidebar-label">Import Calendar</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
       </aside>
 
       <!-- Includes main content area and top bar  -->

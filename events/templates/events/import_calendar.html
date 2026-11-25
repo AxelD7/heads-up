@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Import Calendar | HeadsUp Calendar{% endblock %}
+
+{% block content %}
+<div class="container mt-3" style="max-width: 720px;">
+  <div class="card shadow-sm border-0">
+    <div class="card-body p-4">
+      <h2 class="h4 fw-bold mb-1">Import External Calendar</h2>
+      <p class="text-muted small mb-4">
+        Sync your classes from Moodle or events from Google Calendar using an iCal (.ics) feed link or file.
+      </p>
+
+      <!-- Instructions Helper Box -->
+      <div class="alert alert-info small mb-4">
+        <strong>Where do I get my link?</strong>
+        <ul class="mb-0 mt-1 ps-3">
+          <li><strong>Moodle:</strong> Calendar &rarr; Export calendar &rarr; <em>Get calendar URL</em>.</li>
+          <li><strong>Google Calendar:</strong> Settings &amp; sharing &rarr; Integrate calendar &rarr; <em>Secret address in iCal format</em>.</li>
+        </ul>
+      </div>
+
+      <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger">
+            {% for error in form.non_field_errors %}
+              <div>{{ error }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% for field in form %}
+          <div class="mb-3">
+            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
+              {{ field.label }}
+            </label>
+            {{ field }}
+            {% if field.errors %}
+              <div class="text-danger small mt-1">{{ field.errors.0 }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+          <a href="{% url 'events:event_list' %}" class="btn btn-secondary">Cancel</a>
+          <button type="submit" class="btn btn-primary fw-semibold">Import &amp; Sync Calendar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
