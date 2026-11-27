@@ -362,6 +362,41 @@ class EventViewTestCase(TestCase):
             Event.Category.ACADEMIC,
         )
 
+    def test_event_create_uses_eastern_timezone_not_utc(self):
+        """
+        Verify naive datetime-local inputs save as Eastern Time instead of UTC.
+        """
+        response = self.client.post(
+            reverse("events:event_create"),
+            {
+                "title": "Afternoon Study",
+                "start_time": "2027-01-15T15:00",
+                "end_time": "2027-01-15T15:01",
+                "location": "",
+                "description": "",
+                "category": Event.Category.ACADEMIC,
+            },
+        )
+        self.assertRedirects(response, reverse("events:event_list"))
+
+        event = Event.objects.get(title="Afternoon Study")
+        # January 15 at 3:00 PM EST (UTC-5) must store 20:00 UTC
+        expected_utc_start = datetime(2027, 1, 15, 20, 0, tzinfo=dt_timezone.utc)
+        self.assertEqual(event.start_time, expected_utc_start)
+
+        dashboard_res = self.client.get(reverse("events:event_list"))
+        payload = next(
+            item
+            for item in dashboard_res.context["dashboard_events"]
+            if item["id"] == event.pk
+        )
+        self.assertEqual(payload["start"], int(expected_utc_start.timestamp() * 1000))
+
+        update_res = self.client.get(
+            reverse("events:event_update", kwargs={"pk": event.pk})
+        )
+        self.assertContains(update_res, 'value="2027-01-15T15:00"')
+
     def test_event_creation_rejects_invalid_times(self):
         """
         Ensure an event cannot end before or at its start time.
