@@ -53,3 +53,38 @@ class NotificationQueue(models.Model):
 
     def __str__(self):
         return f"{self.delivery_method} reminder for {self.event.title} at {self.target_time} ({self.status})"
+
+
+class NotificationPreference(models.Model):
+    """
+    Stores per-user reminder preferences without modifying the CustomUser model.
+    Currently email-only (SMS reminders are unavailable/disabled).
+    """
+    REMINDER_INTERVAL_CHOICES = [
+        (15, "15 minutes before"),
+        (30, "30 minutes before"),
+        (60, "1 hour before"),
+        (1440, "1 day before"),
+    ]
+
+    # User who owns these notification settings
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notification_preference",
+    )
+    # Whether email reminders are enabled for this user
+    email_enabled = models.BooleanField(default=True)
+    # Optional custom email address for reminders (falls back to user.email if blank)
+    notification_email = models.EmailField(blank=True)
+    # How many minutes before an event the reminder should be scheduled
+    reminder_minutes = models.PositiveIntegerField(
+        choices=REMINDER_INTERVAL_CHOICES,
+        default=60,
+    )
+    # SMS reminders are currently disabled/unavailable (email-only)
+    sms_enabled = models.BooleanField(default=False)
+
+    def __str__(self):
+        status = "Enabled" if self.email_enabled else "Disabled"
+        return f"Notification preferences for {self.user} (Email: {status})"

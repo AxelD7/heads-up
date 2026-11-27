@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Notification Settings | HeadsUp Calendar{% endblock %}
+
+{% block content %}
+<div class="container mt-3" style="max-width: 820px;">
+  <!-- Flash status alerts -->
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <!-- Notification Settings Card -->
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-body p-4">
+      <h1 class="h4 fw-bold mb-1">Notification Settings</h1>
+      <p class="text-muted small mb-4">
+        Configure how HeadsUp alerts you before your calendar events begin.
+      </p>
+
+      <form method="POST">
+        {% csrf_token %}
+
+        <!-- Email Notifications Section (Active) -->
+        <div class="border rounded p-3 mb-3 bg-light">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+              <h2 class="h6 fw-bold mb-0">Email Reminders</h2>
+              <small class="text-muted">
+                Currently sending to:
+                <strong>{{ preference.notification_email|default:request.user.email|default:"No email configured" }}</strong>
+              </small>
+            </div>
+            <div class="form-check form-switch m-0">
+              {{ form.email_enabled }}
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <label for="{{ form.notification_email.id_for_label }}" class="form-label small fw-semibold mb-1">
+              {{ form.notification_email.label }}
+            </label>
+            {{ form.notification_email }}
+            <div class="form-text">
+              Leave blank to use your account email ({{ request.user.email|default:"none set" }}).
+            </div>
+            {% if form.notification_email.errors %}
+              <div class="text-danger small mt-1">{{ form.notification_email.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <div class="mt-3">
+            <label for="{{ form.reminder_minutes.id_for_label }}" class="form-label small fw-semibold mb-1">
+              {{ form.reminder_minutes.label }}
+            </label>
+            {{ form.reminder_minutes }}
+          </div>
+        </div>
+
+        <!-- SMS Notifications Section (Marked Unavailable / Disabled - Email Only) -->
+        <div class="border rounded p-3 mb-4 bg-light opacity-75">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="d-flex align-items-center gap-2">
+                <h2 class="h6 fw-bold mb-0 text-secondary">SMS Text Reminders</h2>
+                <span class="badge bg-secondary">Unavailable (Email-Only)</span>
+              </div>
+              <small class="text-muted">
+                SMS alerts are currently disabled. All event reminders are delivered by email only.
+              </small>
+            </div>
+            <div class="form-check form-switch m-0">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="id_sms_unavailable"
+                disabled
+                aria-disabled="true"
+              >
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-end gap-2">
+          <a href="{% url 'events:event_list' %}" class="btn btn-secondary btn-sm">Back to Calendar</a>
+          <button type="submit" name="action" value="send_test" class="btn btn-outline-primary btn-sm fw-semibold">
+            Send Test Email
+          </button>
+          <button type="submit" name="action" value="save" class="btn btn-primary btn-sm fw-semibold">
+            Save Notification Settings
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scheduled & Recent Reminders History Card -->
+  <div class="card shadow-sm border-0">
+    <div class="card-body p-4">
+      <h2 class="h5 fw-bold mb-3">Your Scheduled &amp; Recent Reminders</h2>
+
+      {% if recent_notifications %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr class="text-muted small">
+                <th>Event</th>
+                <th>Scheduled Time (UTC)</th>
+                <th>Method</th>
+                <th>Status</th>
+                <th>Attempts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for notif in recent_notifications %}
+                <tr>
+                  <td>
+                    <a href="{% url 'events:event_detail' notif.event.pk %}" class="text-decoration-none fw-semibold">
+                      {{ notif.event.title }}
+                    </a>
+                  </td>
+                  <td class="small">{{ notif.target_time|date:"M d, Y H:i" }}</td>
+                  <td class="small text-uppercase">{{ notif.delivery_method }}</td>
+                  <td>
+                    {% if notif.status == "sent" %}
+                      <span class="badge bg-success">Sent</span>
+                    {% elif notif.status == "pending" %}
+                      <span class="badge bg-primary">Pending</span>
+                    {% elif notif.status == "canceled" %}
+                      <span class="badge bg-secondary">Canceled</span>
+                    {% elif notif.status == "failed" %}
+                      <span class="badge bg-danger">Failed</span>
+                    {% else %}
+                      <span class="badge bg-warning text-dark">{{ notif.get_status_display }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="small">{{ notif.attempts }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-muted small mb-0">No reminders queued yet. Create an upcoming event to schedule one!</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

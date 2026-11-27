@@ -3,11 +3,33 @@ import logging
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
-from .models import NotificationQueue
+from .models import NotificationPreference, NotificationQueue
 
 logger = logging.getLogger(__name__)
+
+
+def cancel_notifications_for_event(event):
+    """
+    Mark all pending notifications for a given event as canceled.
+    Leaves already sent, failed, or processing rows untouched.
+    """
+    return NotificationQueue.objects.filter(
+        event=event,
+        status=NotificationQueue.Status.PENDING,
+    ).update(status=NotificationQueue.Status.CANCELED)
+
+
+def cancel_user_pending_notifications(user):
+    """
+    Mark all pending notifications for a user as canceled (used when notifications are disabled).
+    """
+    return NotificationQueue.objects.filter(
+        user=user,
+        status=NotificationQueue.Status.PENDING,
+    ).update(status=NotificationQueue.Status.CANCELED)
 
 
 def queue_notifications_for_event(event):
@@ -15,15 +37,27 @@ def queue_notifications_for_event(event):
     Recalculates and schedules pending reminders for a given calendar event.
     
     1. Cancels any existing pending reminders for this event.
-    2. Calculates target reminder times (start_time - interval).
-    3. Queues new pending reminder rows for any target time still in the future.
+    2. Checks user NotificationPreference (skips queuing if disabled).
+    3. Calculates target reminder times (start_time - interval).
+    4. Queues new pending reminder rows for any target time still in the future.
     """
     # Read global reminder defaults from settings (or fall back to defaults)
     intervals = getattr(settings, "NOTIFICATION_DEFAULT_INTERVALS_MINUTES", [60])
     methods = getattr(settings, "NOTIFICATION_DEFAULT_METHODS", ["email"])
 
-    # If the user model defines custom reminder preferences, prioritize them
     user = event.user
+    pref = NotificationPreference.objects.filter(user=user).first()
+
+    # Respect NotificationPreference if the user has configured settings
+    if pref is not None:
+        if not pref.email_enabled:
+            with transaction.atomic():
+                cancel_notifications_for_event(event)
+            return []
+        intervals = [pref.reminder_minutes]
+        methods = [NotificationQueue.DeliveryMethod.EMAIL]
+
+    # Also support custom attributes if added directly on CustomUser in the future
     if hasattr(user, "notification_intervals") and getattr(user, "notification_intervals"):
         intervals = getattr(user, "notification_intervals")
     if hasattr(user, "notification_methods") and getattr(user, "notification_methods"):
@@ -34,11 +68,7 @@ def queue_notifications_for_event(event):
 
     with transaction.atomic():
         # a) Cancel all currently pending reminders for this event
-        # (Leave already sent, failed, or processing rows untouched)
-        NotificationQueue.objects.filter(
-            event=event,
-            status=NotificationQueue.Status.PENDING,
-        ).update(status=NotificationQueue.Status.CANCELED)
+        cancel_notifications_for_event(event)
 
         # b) Calculate target delivery times for each interval and delivery method
         for interval in intervals:
@@ -63,10 +93,9 @@ def queue_notifications_for_event(event):
 
 def send_due_notifications():
     """
-    Queries pending reminders whose target time has arrived, dispatches email
-    notifications using Django SMTP, and updates status (sent, retrying, failed).
-    
-    Implements the 3-attempt retry policy defined in SDD Section 4.4 and Figure 4.1.
+    Queries pending reminders whose target time has arrived, atomically claims each row
+    as 'processing' to prevent duplicate sends, dispatches email via Django SMTP/console,
+    and updates status to 'sent' or 'failed' (retrying up to 3 times).
     """
     now = timezone.now()
 
@@ -78,21 +107,35 @@ def send_due_notifications():
     ).select_related("event", "user")
 
     results = {
-        "total": due_notifications.count(),
+        "total": 0,
         "sent": 0,
         "retrying": 0,
         "failed": 0,
     }
 
     for notification in due_notifications:
+        # Atomic compare-and-set claim: only claim rows that are still PENDING
+        with transaction.atomic():
+            claimed = NotificationQueue.objects.filter(
+                pk=notification.pk,
+                status=NotificationQueue.Status.PENDING,
+            ).update(
+                status=NotificationQueue.Status.PROCESSING,
+                attempts=F("attempts") + 1,
+            )
+            if claimed == 0:
+                continue
+            notification.refresh_from_db(fields=["status", "attempts"])
+
+        results["total"] += 1
         event = notification.event
         user = notification.user
-
-        # Atomic claim: mark processing and increment delivery attempts
-        with transaction.atomic():
-            notification.status = NotificationQueue.Status.PROCESSING
-            notification.attempts += 1
-            notification.save(update_fields=["status", "attempts"])
+        pref = NotificationPreference.objects.filter(user=user).first()
+        recipient_email = (
+            pref.notification_email
+            if pref and pref.notification_email
+            else user.email
+        )
 
         # Format user-friendly email content
         location_line = f"Location: {event.location}\n" if event.location else ""
@@ -111,12 +154,15 @@ def send_due_notifications():
         )
 
         try:
-            # Send notification via Django email backend
+            if not recipient_email:
+                raise ValueError("Recipient user has no email address configured.")
+
+            # Send notification via configured Django email backend (SMTP or console)
             send_mail(
                 subject=f"Heads Up Reminder: {event.title}",
                 message=message_body,
                 from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "headsup475@gmail.com"),
-                recipient_list=[user.email],
+                recipient_list=[recipient_email],
                 fail_silently=False,
             )
 
@@ -124,7 +170,7 @@ def send_due_notifications():
             notification.status = NotificationQueue.Status.SENT
             notification.save(update_fields=["status"])
             results["sent"] += 1
-            logger.info(f"Successfully sent reminder for event '{event.title}' to {user.email}")
+            logger.info(f"Successfully sent reminder for event '{event.title}' to {recipient_email}")
 
         except Exception as exc:
             logger.warning(

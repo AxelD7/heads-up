@@ -24,6 +24,7 @@ from users.views import UserLoginView, signup
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("users/", include("users.urls")),
+    path("notifications/", include("notifications.urls")),
 
     # Log in / sign up pages (views live in users/views.py)
     path("login/", UserLoginView.as_view(), name="login"),
