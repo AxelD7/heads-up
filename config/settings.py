@@ -148,7 +148,7 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'headsup475@gmail.com'
-EMAIL_HOST_PASSWORD = 'fhng lprb jztb wnze'
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = 'Heads Up <headsup475@gmail.com>'
 
 AUTH_USER_MODEL = 'users.CustomUser'
