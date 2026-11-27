@@ -1,0 +1,78 @@
+<!-- Quick-event modal form -->
+<dialog id="quick-event-dialog" aria-labelledby="quick-event-title">
+  <form action="{% url 'events:event_create' %}" method="post">
+    {% csrf_token %}
+    <header class="quick-event-heading">
+      <h2 id="quick-event-title">Create event</h2>
+      <button
+        class="quick-event-close"
+        type="button"
+        data-close-quick-event
+        aria-label="Close"
+      >
+        &times;
+      </button>
+    </header>
+    <!-- Event details fields -->
+    <label for="quick-event-title-input">Title</label>
+    <input
+      class="form-control"
+      id="quick-event-title-input"
+      name="title"
+      type="text"
+      maxlength="200"
+      required
+    />
+    <label for="quick-event-start">Start</label>
+    <input
+      class="form-control"
+      id="quick-event-start"
+      name="start_time"
+      type="datetime-local"
+      required
+    />
+    <label for="quick-event-end">End</label>
+    <input
+      class="form-control"
+      id="quick-event-end"
+      name="end_time"
+      type="datetime-local"
+      required
+    />
+    <label for="quick-event-category">Category</label>
+    <select
+      class="form-select"
+      id="quick-event-category"
+      name="category"
+      required
+    >
+      {% for value, label in event_categories %}
+      <option value="{{ value }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+    <label for="quick-event-location">Location</label>
+    <input
+      class="form-control"
+      id="quick-event-location"
+      name="location"
+      type="text"
+      maxlength="200"
+    />
+    <label for="quick-event-description">Description</label>
+    <textarea
+      class="form-control"
+      id="quick-event-description"
+      name="description"
+      rows="3"
+    ></textarea>
+    <!-- Modal actions -->
+    <footer class="quick-event-actions">
+      <button class="today-button" type="button" data-close-quick-event>
+        Cancel
+      </button>
+      <button class="today-button quick-event-submit" type="submit">
+        Save event
+      </button>
+    </footer>
+  </form>
+</dialog>

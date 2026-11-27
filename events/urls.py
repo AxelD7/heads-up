@@ -27,6 +27,7 @@ urlpatterns = [
     path("<int:pk>/delete/", views.event_delete, name="event_delete"),
 
     # Paths for importing and managing external Moodle / Google iCal feeds
+    path("calendar/<str:source>/", views.source_calendar, name="source_calendar"),
     path("import/", views.import_calendar, name="import_calendar"),
     path("feeds/<int:pk>/sync/", views.sync_feed, name="sync_feed"),
     path("feeds/<int:pk>/delete/", views.delete_feed, name="delete_feed"),

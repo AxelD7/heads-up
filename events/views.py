@@ -1,7 +1,9 @@
+from datetime import timedelta
 import secrets
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
@@ -22,30 +24,67 @@ from .services import fetch_ics_from_url, sync_ics_events
 @login_required
 def event_list(request):
     """
-    Display the interactive calendar dashboard for the logged-in user.
-    Supports optional '?source=Moodle' or '?source=Google' filtering.
+    Render the calendar dashboard with this user's events and preferences.
     """
-    active_source = request.GET.get("source", "").strip()
+    events = Event.objects.filter(user=request.user).order_by("start_time")
+    # Stores list of events that are after the current time to use in the front end.
+    upcoming_events = events.filter(
+        start_time__gte=timezone.now(),
+        start_time__lte=timezone.now() + timedelta(days=7),
+    )
+    # Build the JSON dashboard event data that the front end needs for the calendar.
+    dashboard_events = []
+    for event in events:
+        dashboard_events.append({
+            "id": event.pk,
+            "title": event.title,
+            "category": event.category,
+            "category_label": event.get_category_display(),
+            # Milliseconds preserve the UTC instant and let the browser render it in local time.
+            "start": int(event.start_time.timestamp() * 1000),
+            "end": int(event.end_time.timestamp() * 1000),
+            "location": event.location,
+            "description": event.description,
+            "detail_url": reverse("events:event_detail", kwargs={"pk": event.pk}),
+        })
+
+    return render(
+        request,
+        "events/dashboard.html",
+        # Data being served to the template.
+        {
+            "events": upcoming_events,
+            "dashboard_events": dashboard_events,
+            # These preferences let the template and client-side calendar format dates consistently.
+            "date_format": request.user.date_format,
+            "time_format": request.user.time_format,
+            "date_fmt": "j/n/Y" if request.user.date_format == "D/M/Y" else "n/j/Y",
+            "time_fmt": "H:i" if request.user.time_format == "24h" else "g:i A",
+            "event_categories": Event.Category.choices,
+        },
+    )
+
+
+@login_required
+def source_calendar(request, source):
+    """
+    Display imported events for a specific external source tab (Moodle or Google)
+    along with feed management and sync controls.
+    """
     events = (
-        Event.objects.filter(user=request.user)
+        Event.objects.filter(user=request.user, feed__source_type__iexact=source)
         .select_related("feed")
         .order_by("start_time")
     )
 
-    if active_source:
-        events = events.filter(feed__source_type__iexact=active_source)
-
-    # Category color palette matching Heads Up UI styling
     category_colors = {
         Event.Category.ACADEMIC: "#2b6cb0",
         Event.Category.PERSONAL: "#38a169",
         Event.Category.WORK: "#dd6b20",
     }
 
-    # Build JSON-ready list for FullCalendar.js
     calendar_events = []
     for event in events:
-        source_label = event.feed.source_type if event.feed else "Manual"
         calendar_events.append({
             "id": event.pk,
             "title": event.title,
@@ -54,26 +93,22 @@ def event_list(request):
             "url": reverse("events:event_detail", kwargs={"pk": event.pk}),
             "backgroundColor": category_colors.get(event.category, "#2b6cb0"),
             "borderColor": category_colors.get(event.category, "#2b6cb0"),
-            "extendedProps": {
-                "category": event.get_category_display(),
-                "location": event.location,
-                "source": source_label,
-            },
         })
 
-    # Upcoming events list for the sidebar card (next 5 events)
     upcoming_events = events.filter(end_time__gte=timezone.now())[:5]
-    user_feeds = ExternalFeed.objects.filter(user=request.user).order_by("source_type")
+    user_feeds = ExternalFeed.objects.filter(
+        user=request.user,
+        source_type__iexact=source,
+    ).order_by("source_type")
     use_24h = getattr(request.user, "time_format", "12h") == "24h"
 
     return render(
         request,
-        "events/dashboard.html",
+        "events/source_calendar.html",
         {
-            "events": events,
+            "active_source": source,
             "calendar_events": calendar_events,
             "upcoming_events": upcoming_events,
-            "active_source": active_source,
             "user_feeds": user_feeds,
             "use_24h": use_24h,
         },
@@ -112,10 +147,24 @@ def event_create(request):
             event.user = request.user
             event.save()
 
-            return redirect("events:event_detail", pk=event.pk)
+            return redirect("events:event_list")
 
     else:
         form = EventForm()
+
+    if (
+        request.method == "POST"
+        and request.headers.get("x-requested-with") == "XMLHttpRequest"
+    ):
+        return JsonResponse(
+            {
+                "errors": {
+                    field: [str(error) for error in errors]
+                    for field, errors in form.errors.items()
+                }
+            },
+            status=400,
+        )
 
     return render(
         request,
@@ -245,7 +294,7 @@ def import_calendar(request):
                     f"{source_type} sync complete: {summary['created']} added, "
                     f"{summary['updated']} updated, {summary['skipped']} unchanged.",
                 )
-                return redirect(f"{reverse('events:event_list')}?source={source_type}")
+                return redirect("events:source_calendar", source=source_type)
             except ValueError as exc:
                 form.add_error(None, str(exc))
     else:
@@ -286,7 +335,7 @@ def sync_feed(request, pk):
                 f"Synced Google Calendar API: {summary['created']} added, "
                 f"{summary['updated']} updated, {summary['skipped']} unchanged.",
             )
-            return redirect(f"{reverse('events:event_list')}?source=Google")
+            return redirect("events:source_calendar", source="Google")
         except ValueError:
             request.session.pop("google_access_token", None)
             return redirect("events:google_connect")
@@ -302,7 +351,7 @@ def sync_feed(request, pk):
     except ValueError as exc:
         messages.error(request, f"Sync failed for {feed.source_type}: {exc}")
 
-    return redirect(f"{reverse('events:event_list')}?source={feed.source_type}")
+    return redirect("events:source_calendar", source=feed.source_type)
 
 
 @login_required
@@ -315,7 +364,7 @@ def delete_feed(request, pk):
     source_name = feed.source_type
     feed.delete()
     messages.info(request, f"Removed {source_name} calendar feed and its imported events.")
-    return redirect("events:event_list")
+    return redirect("events:source_calendar", source=source_name)
 
 
 @login_required
@@ -369,7 +418,7 @@ def google_callback(request):
             f"Google Calendar synced: {summary['created']} added, "
             f"{summary['updated']} updated, {summary['skipped']} unchanged.",
         )
-        return redirect(f"{reverse('events:event_list')}?source=Google")
+        return redirect("events:source_calendar", source="Google")
     except ValueError as exc:
         messages.error(request, f"Google Calendar sync failed: {exc}")
         return redirect("events:import_calendar")

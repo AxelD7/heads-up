@@ -12,7 +12,6 @@ class EventForm(forms.ModelForm):
 
     # Get and save the start time of the event  
     start_time = forms.DateTimeField(
-        input_formats=["%Y-%m-%dT%H:%M"],
         widget=forms.DateTimeInput(
         attrs={
             "type": "datetime-local",
@@ -23,7 +22,6 @@ class EventForm(forms.ModelForm):
     )
     # Get and save the end time of the event
     end_time = forms.DateTimeField(
-        input_formats=["%Y-%m-%dT%H:%M"],
         widget=forms.DateTimeInput(
         attrs={
             "type": "datetime-local",

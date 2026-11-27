@@ -62,13 +62,13 @@
         <nav class="sidebar-nav secondary-nav mt-3 pt-3 border-top border-secondary">
           <ul class="nav-list">
             <li class="moodle-view">
-              <a href="{% url 'events:event_list' %}?source=Moodle" class="nav-link">
+              <a href="{% url 'events:source_calendar' 'Moodle' %}" class="nav-link">
                 <span class="material-symbols-outlined">school</span>
                 <span class="sidebar-label">Moodle</span>
               </a>
             </li>
             <li class="google-view">
-              <a href="{% url 'events:event_list' %}?source=Google" class="nav-link">
+              <a href="{% url 'events:source_calendar' 'Google' %}" class="nav-link">
                 <span class="material-symbols-outlined">event</span>
                 <span class="sidebar-label">Google Calendar</span>
               </a>

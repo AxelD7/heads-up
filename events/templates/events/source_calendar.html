@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}{{ active_source }} Calendar | HeadsUp Calendar{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <style>
+    .calendar-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 1.25rem;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+    .upcoming-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 1.25rem;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+    .fc-event {
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 2px 4px;
+      font-size: 0.85rem;
+    }
+    .fc-toolbar-title {
+      font-size: 1.35rem !important;
+      font-weight: 700;
+      color: #152638;
+    }
+    .category-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+  <!-- Flash alerts after importing or syncing feeds -->
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <!-- Source Tab Header & Actions -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+      <h1 class="h3 text-white mb-0">{{ active_source }} Calendar</h1>
+      <small class="text-light opacity-75">Showing imported {{ active_source }} events</small>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+      <a href="{% url 'events:event_list' %}" class="btn btn-outline-light btn-sm">
+        Main Calendar
+      </a>
+      {% if active_source|lower == "google" %}
+        <a href="{% url 'events:google_connect' %}" class="btn btn-light text-dark fw-semibold btn-sm">
+          Connect Google
+        </a>
+      {% endif %}
+      <a href="{% url 'events:import_calendar' %}?source={{ active_source }}" class="btn btn-info text-dark fw-semibold btn-sm">
+        + Import / Sync {{ active_source }}
+      </a>
+    </div>
+  </div>
+
+  <!-- Connected External Feeds Bar for this source -->
+  {% if user_feeds %}
+    <div class="card mb-3 border-0 shadow-sm">
+      <div class="card-body py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <span class="fw-semibold text-secondary small">Connected {{ active_source }} Feeds:</span>
+        <div class="d-flex flex-wrap gap-2">
+          {% for feed in user_feeds %}
+            <div class="d-inline-flex align-items-center gap-2 border rounded px-2 py-1 bg-light small">
+              <span class="fw-semibold text-dark">{{ feed.source_type }}</span>
+              <span class="text-muted">
+                {% if feed.last_synced_at %}
+                  Synced {{ feed.last_synced_at|timesince }} ago
+                {% else %}
+                  Not synced yet
+                {% endif %}
+              </span>
+              {% if feed.feed_url %}
+                <form method="POST" action="{% url 'events:sync_feed' feed.pk %}" class="d-inline">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-outline-primary btn-sm py-0 px-2">Sync</button>
+                </form>
+              {% endif %}
+              <form method="POST" action="{% url 'events:delete_feed' feed.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" title="Remove feed">×</button>
+              </form>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Two-Column Calendar Layout for Source Events -->
+  <div class="row g-3">
+    <div class="col-lg-3">
+      <div class="upcoming-card mb-3">
+        <h2 class="h6 fw-bold text-uppercase text-secondary mb-3">Upcoming {{ active_source }}</h2>
+        {% if upcoming_events %}
+          <div class="list-group list-group-flush">
+            {% for event in upcoming_events %}
+              <a href="{% url 'events:event_detail' event.pk %}" class="list-group-item list-group-item-action px-0 py-2">
+                <div class="d-flex justify-content-between align-items-start">
+                  <strong class="text-dark small">{{ event.title }}</strong>
+                  <span class="badge bg-secondary ms-1">{{ event.get_category_display }}</span>
+                </div>
+                <div class="text-muted" style="font-size: 0.78rem;">
+                  {{ event.start_time|date:"M d, Y" }} ·
+                  {% if use_24h %}
+                    {{ event.start_time|date:"H:i" }}
+                  {% else %}
+                    {{ event.start_time|date:"g:i A" }}
+                  {% endif %}
+                </div>
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted small mb-0">No upcoming {{ active_source }} events.</p>
+        {% endif %}
+      </div>
+
+      <div class="upcoming-card">
+        <h2 class="h6 fw-bold text-uppercase text-secondary mb-2">Categories</h2>
+        <div class="small d-flex flex-column gap-1">
+          <div><span class="category-dot" style="background: #2b6cb0;"></span>Academic</div>
+          <div><span class="category-dot" style="background: #38a169;"></span>Personal</div>
+          <div><span class="category-dot" style="background: #dd6b20;"></span>Work</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="calendar-card">
+        <div id="source-calendar"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ calendar_events|json_script:"source-calendar-events-data" }}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const calendarEl = document.getElementById("source-calendar");
+    const rawData = document.getElementById("source-calendar-events-data").textContent;
+    const eventsData = JSON.parse(rawData);
+    const use24Hour = {{ use_24h|yesno:"true,false" }};
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: "dayGridMonth",
+      headerToolbar: {
+        left: "prev,next today",
+        center: "title",
+        right: "dayGridMonth,timeGridWeek,timeGridDay"
+      },
+      events: eventsData,
+      eventTimeFormat: {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: !use24Hour
+      },
+      height: "auto",
+      navLinks: true,
+      dayMaxEvents: true
+    });
+
+    calendar.render();
+  });
+</script>
+{% endblock %}

@@ -254,6 +254,54 @@ class EventViewTestCase(TestCase):
         self.assertIn(self.event, events)
         self.assertNotIn(self.other_event, events)
 
+    def test_dashboard_context_serializes_owned_events_and_preferences(self):
+        """
+        Test to make sure past events stay in the calendar data but do not make it to the upcoming list.
+        """
+        past_event = Event.objects.create(
+            user=self.user,
+            title="Past event",
+            start_time=timezone.now() - timedelta(days=2),
+            end_time=timezone.now() - timedelta(days=2) + timedelta(hours=1),
+        )
+        self.user.date_format = "D/M/Y"
+        self.user.time_format = "24h"
+        self.user.save(update_fields=["date_format", "time_format"])
+
+        response = self.client.get(reverse("events:event_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["date_format"], "D/M/Y")
+        self.assertEqual(response.context["time_format"], "24h")
+        self.assertEqual(response.context["date_fmt"], "j/n/Y")
+        self.assertEqual(response.context["time_fmt"], "H:i")
+        self.assertIn(self.event, response.context["events"])
+        self.assertNotIn(past_event, response.context["events"])
+
+        serialized_events = response.context["dashboard_events"]
+        event_data = next(
+            event for event in serialized_events if event["id"] == self.event.pk
+        )
+        self.assertEqual(
+            event_data["start"], int(self.event.start_time.timestamp() * 1000)
+        )
+        self.assertEqual(
+            event_data["end"], int(self.event.end_time.timestamp() * 1000)
+        )
+        self.assertEqual(event_data["category"], self.event.category)
+        self.assertEqual(event_data["location"], self.event.location)
+        self.assertEqual(event_data["description"], self.event.description)
+        self.assertEqual(
+            event_data["detail_url"],
+            reverse("events:event_detail", kwargs={"pk": self.event.pk}),
+        )
+        self.assertTrue(
+            any(event["id"] == past_event.pk for event in serialized_events)
+        )
+        self.assertFalse(
+            any(event["id"] == self.other_event.pk for event in serialized_events)
+        )
+
     def test_user_can_view_own_event(self):
         """
         Ensure a user can view their own event.
@@ -301,7 +349,10 @@ class EventViewTestCase(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(
+            response,
+            reverse("events:event_list"),
+        )
 
         event = Event.objects.get(title="New Coding Grindsesh")
 
@@ -485,7 +536,7 @@ class EventViewTestCase(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/admin", response.url)
+        self.assertIn(reverse("login"), response.url)
 
 
 class IcalParserServiceTestCase(TestCase):
@@ -725,23 +776,25 @@ class CalendarDashboardAndImportTestCase(TestCase):
 
     def test_dashboard_source_filtering_moodle_and_google(self):
         """
-        Dashboard must show all user events by default, and filter accurately when
-        '?source=Moodle' or '?source=Google' is requested from the sidebar tabs.
+        Main dashboard shows all user events untouched, while dedicated Moodle and Google
+        sidebar tabs filter accurately to each external source.
         """
-        # Default (All)
+        # Main Calendar tab (All events)
         resp_all = self.client.get(reverse("events:event_list"))
         self.assertEqual(resp_all.status_code, 200)
-        self.assertEqual(len(resp_all.context["calendar_events"]), 3)
+        self.assertEqual(len(resp_all.context["dashboard_events"]), 3)
 
-        # Moodle tab filter
-        resp_moodle = self.client.get(reverse("events:event_list") + "?source=Moodle")
+        # Moodle tab (/calendar/Moodle/)
+        resp_moodle = self.client.get(reverse("events:source_calendar", kwargs={"source": "Moodle"}))
         self.assertEqual(resp_moodle.status_code, 200)
+        self.assertTemplateUsed(resp_moodle, "events/source_calendar.html")
         moodle_titles = [e["title"] for e in resp_moodle.context["calendar_events"]]
         self.assertEqual(moodle_titles, ["Moodle Quiz"])
 
-        # Google Calendar tab filter
-        resp_google = self.client.get(reverse("events:event_list") + "?source=Google")
+        # Google Calendar tab (/calendar/Google/)
+        resp_google = self.client.get(reverse("events:source_calendar", kwargs={"source": "Google"}))
         self.assertEqual(resp_google.status_code, 200)
+        self.assertTemplateUsed(resp_google, "events/source_calendar.html")
         google_titles = [e["title"] for e in resp_google.context["calendar_events"]]
         self.assertEqual(google_titles, ["Google Dentist"])
 
@@ -892,7 +945,10 @@ class GoogleCalendarAPITestCase(TestCase):
             data={"state": "valid-state", "code": "auth-code-123"},
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, f"{reverse('events:event_list')}?source=Google")
+        self.assertEqual(
+            response.url,
+            reverse("events:source_calendar", kwargs={"source": "Google"}),
+        )
 
         # 2 confirmed events imported, 1 cancelled skipped
         events = Event.objects.filter(user=self.user, feed__source_type="Google")

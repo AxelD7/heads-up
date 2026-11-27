@@ -1,0 +1,53 @@
+<!-- Calendar controls and calendar grid -->
+<section class="dashboard-card calendar-card" aria-labelledby="calendar-period">
+  <header class="calendar-toolbar">
+    <!-- Current period and previous/today/next controls -->
+    <div class="calendar-navigation">
+      <h2 class="calendar-current-period" id="calendar-period">
+        {% now "F Y" %}
+      </h2>
+      <div class="calendar-navigation-buttons" aria-label="Calendar navigation">
+        <button
+          class="icon-button"
+          type="button"
+          data-calendar-action="previous"
+          aria-label="Previous month"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true"
+            >chevron_left</span
+          >
+        </button>
+        <button class="today-button" type="button" data-calendar-action="today">
+          Today
+        </button>
+        <button
+          class="icon-button"
+          type="button"
+          data-calendar-action="next"
+          aria-label="Next month">
+          <span class="material-symbols-outlined" aria-hidden="true"
+            >chevron_right</span
+          >
+        </button>
+      </div>
+    </div>
+
+    <!-- Month/week view switcher -->
+    <div class="calendar-view-switcher" role="group" aria-label="Calendar view">
+      <button type="button" data-calendar-view="month" aria-pressed="true">
+        Month
+      </button>
+      <button type="button" data-calendar-view="week" aria-pressed="false">
+        Week
+      </button>
+    </div>
+  </header>
+
+  <!-- FullCalendar start point -->
+  <div
+    class="calendar-grid"
+    aria-labelledby="calendar-period"
+    data-time-format="{{ time_format }}">
+    <div class="calendar-days" aria-live="polite"></div>
+  </div>
+</section>
