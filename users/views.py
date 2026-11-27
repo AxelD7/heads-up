@@ -41,7 +41,7 @@ def signup(request):
         form = SignUpForm(request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user)
+            login(request, user, backend="users.backends.UsernameOrEmailBackend")
             return redirect("events:event_list")
     else:
         form = SignUpForm()

@@ -126,8 +126,10 @@ class AccountCreationTests(TestCase):
             self.assertContains(response, f'name="{name}"')
 
     def test_signup_saves_profile_fields(self):
-        self.client.post(reverse("signup"), self.valid_data())
+        response = self.client.post(reverse("signup"), self.valid_data())
         user = get_user_model().objects.get(username="newuser")
+        self.assertRedirects(response, reverse("events:event_list"))
+        self.assertTrue(self.client.session["_auth_user_id"] == str(user.pk))
         self.assertEqual(user.first_name, "New")
         self.assertEqual(user.last_name, "User")
         self.assertEqual(user.phone_number, "(555) 010-0199")
