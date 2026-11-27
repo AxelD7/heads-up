@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from events.models import Event
 from .models import NotificationPreference, NotificationQueue
+from .scheduler import run_pending_reminders_once, should_start_scheduler
 from .services import cancel_notifications_for_event, send_due_notifications
 
 
@@ -557,3 +558,100 @@ class NotificationSettingsUITestCase(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["personal_test@example.com"])
         self.assertIn("Heads Up Test Notification", mail.outbox[0].subject)
+
+    def test_short_demo_intervals_can_be_selected_and_schedule_reminders(self):
+        """
+        Saving 1-minute lead time in settings should schedule reminders 1 minute before start_time.
+        """
+        future_event = Event.objects.create(
+            user=self.user,
+            title="Live Demo Event",
+            start_time=self.now + timedelta(minutes=10),
+            end_time=self.now + timedelta(minutes=20),
+        )
+
+        response = self.client.post(
+            self.url,
+            data={
+                "email_enabled": "on",
+                "reminder_minutes": 1,
+            },
+        )
+        self.assertRedirects(response, self.url)
+
+        pref = NotificationPreference.objects.get(user=self.user)
+        self.assertEqual(pref.reminder_minutes, 1)
+
+        pending = NotificationQueue.objects.get(
+            event=future_event,
+            status=NotificationQueue.Status.PENDING,
+        )
+        self.assertEqual(pending.target_time, future_event.start_time - timedelta(minutes=1))
+
+    def test_reminder_email_formats_times_in_eastern_time(self):
+        """
+        Sent reminder emails must display event start and end times in local Eastern Time.
+        """
+        # 20:00 UTC on Jan 15 equals 3:00 PM EST
+        utc_start = datetime(2027, 1, 15, 20, 0, tzinfo=dt_timezone.utc)
+        utc_end = datetime(2027, 1, 15, 21, 0, tzinfo=dt_timezone.utc)
+        event = Event.objects.create(
+            user=self.user,
+            title="Eastern Time Check",
+            start_time=utc_start,
+            end_time=utc_end,
+        )
+        notif = NotificationQueue.objects.get(event=event)
+        notif.target_time = self.now - timedelta(minutes=1)
+        notif.save()
+
+        send_due_notifications()
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("2027-01-15 03:00 PM EST", mail.outbox[0].body)
+        self.assertIn("2027-01-15 04:00 PM EST", mail.outbox[0].body)
+        self.assertNotIn("UTC", mail.outbox[0].body)
+
+
+class ReminderSchedulerTestCase(TestCase):
+    """
+    Tests verifying that automatic polling runs only for active runserver workers
+    and safely dispatches due reminders in a single cycle.
+    """
+
+    def test_should_start_scheduler_only_in_runserver_worker(self):
+        self.assertFalse(should_start_scheduler(["manage.py", "test"], {"RUN_MAIN": "true"}))
+        self.assertFalse(should_start_scheduler(["manage.py", "migrate"], {"RUN_MAIN": "true"}))
+        self.assertFalse(should_start_scheduler(["manage.py", "send_reminders"], {"RUN_MAIN": "true"}))
+        # Outer autoreloader process has no RUN_MAIN
+        self.assertFalse(should_start_scheduler(["manage.py", "runserver"], {}))
+        # Inner runserver worker or --noreload process starts scheduler
+        self.assertTrue(should_start_scheduler(["manage.py", "runserver"], {"RUN_MAIN": "true"}))
+        self.assertTrue(should_start_scheduler(["manage.py", "runserver", "--noreload"], {}))
+
+    def test_run_pending_reminders_once_dispatches_due_email(self):
+        user = get_user_model().objects.create_user(
+            username="scheduser",
+            email="sched@example.com",
+            password="securepassword123",
+            phone_number="555-0188",
+        )
+        now = timezone.now()
+        event = Event.objects.create(
+            user=user,
+            title="Auto Polled Event",
+            start_time=now + timedelta(minutes=30),
+            end_time=now + timedelta(minutes=45),
+        )
+        NotificationQueue.objects.create(
+            event=event,
+            user=user,
+            target_time=now - timedelta(seconds=5),
+            delivery_method=NotificationQueue.DeliveryMethod.EMAIL,
+            status=NotificationQueue.Status.PENDING,
+        )
+
+        run_pending_reminders_once()
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["sched@example.com"])

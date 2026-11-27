@@ -110,7 +110,7 @@
             <thead>
               <tr class="text-muted small">
                 <th>Event</th>
-                <th>Scheduled Time (UTC)</th>
+                <th>Scheduled Time (ET)</th>
                 <th>Method</th>
                 <th>Status</th>
                 <th>Attempts</th>
@@ -124,7 +124,7 @@
                       {{ notif.event.title }}
                     </a>
                   </td>
-                  <td class="small">{{ notif.target_time|date:"M d, Y H:i" }}</td>
+                  <td class="small">{{ notif.target_time|date:"M d, Y g:i A" }}</td>
                   <td class="small text-uppercase">{{ notif.delivery_method }}</td>
                   <td>
                     {% if notif.status == "sent" %}

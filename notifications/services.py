@@ -137,6 +137,9 @@ def send_due_notifications():
             else user.email
         )
 
+        local_start = timezone.localtime(event.start_time)
+        local_end = timezone.localtime(event.end_time)
+
         # Format user-friendly email content
         location_line = f"Location: {event.location}\n" if event.location else ""
         description_block = f"\nDetails:\n{event.description}\n" if event.description else ""
@@ -146,8 +149,8 @@ def send_due_notifications():
             f"This is a Heads Up reminder for your upcoming event:\n\n"
             f"Event: {event.title}\n"
             f"Category: {event.get_category_display()}\n"
-            f"Start Time: {event.start_time.strftime('%Y-%m-%d %I:%M %p UTC')}\n"
-            f"End Time: {event.end_time.strftime('%Y-%m-%d %I:%M %p UTC')}\n"
+            f"Start Time: {local_start.strftime('%Y-%m-%d %I:%M %p %Z')}\n"
+            f"End Time: {local_end.strftime('%Y-%m-%d %I:%M %p %Z')}\n"
             f"{location_line}"
             f"{description_block}\n"
             f"— The Heads Up Calendar Team"

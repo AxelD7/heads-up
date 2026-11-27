@@ -12,3 +12,6 @@ class NotificationsConfig(AppConfig):
     def ready(self):
         # Connect signal receivers when Django starts up
         import notifications.signals  # noqa: F401
+        from .scheduler import start_reminder_scheduler
+
+        start_reminder_scheduler()

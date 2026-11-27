@@ -61,6 +61,10 @@ class NotificationPreference(models.Model):
     Currently email-only (SMS reminders are unavailable/disabled).
     """
     REMINDER_INTERVAL_CHOICES = [
+        (1, "1 minute before"),
+        (2, "2 minutes before"),
+        (5, "5 minutes before"),
+        (10, "10 minutes before"),
         (15, "15 minutes before"),
         (30, "30 minutes before"),
         (60, "1 hour before"),
