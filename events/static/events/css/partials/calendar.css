@@ -94,12 +94,18 @@
 
 /* FullCalendar */
 .calendar-grid {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid #d3dce4;
   border-radius: 12px;
 }
 
 .calendar-days {
+  min-height: 0;
+  flex: 1;
   padding: 8px;
 }
 

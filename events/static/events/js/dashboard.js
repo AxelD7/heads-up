@@ -43,8 +43,8 @@ if (calendarGrid && calendarDays && calendarPeriod && eventsElement) {
     // Start in the monthly grid view
     initialView: "dayGridMonth",
 
-    // Set calendar height to the full browser window height minus 290px for headers/toolbars
-    height: "calc(100vh - 290px)",
+    // Month view caps the height, week view fills the  card and allows for scrolls inside it.
+    height: "auto",
 
     // Hide FullCalendar's built-in top toolbar because our Django template has its own custom buttons
     headerToolbar: false,
@@ -153,6 +153,8 @@ if (calendarGrid && calendarDays && calendarPeriod && eventsElement) {
   viewButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const viewName = button.dataset.calendarView === "week" ? "timeGridWeek" : "dayGridMonth";
+      // Allows for week view to enable scrolling or disable scrolling when in month view.
+      calendar.setOption("height", viewName === "timeGridWeek" ? "100%" : "auto");
       calendar.changeView(viewName);
     });
   });
