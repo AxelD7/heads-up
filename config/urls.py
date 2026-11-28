@@ -29,6 +29,7 @@ urlpatterns = [
     # Log in / sign up pages (views live in users/views.py)
     path("login/", UserLoginView.as_view(), name="login"),
     path("signup/", signup, name="signup"),
+    path("accounts/", include("allauth.urls")),
     
     # Since events will be the core of our app, all urls will start with no prefix
     path("", include("events.urls")),

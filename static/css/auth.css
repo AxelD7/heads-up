@@ -113,6 +113,20 @@ body {
   background: #64c5ff;
 }
 
+.google-auth-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.google-auth-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+
 .auth-switch {
   margin-top: 20px;
   text-align: center;
